@@ -1,0 +1,48 @@
+"use client";
+import { useParams } from "next/navigation";
+import { useState } from "react";
+import { Sparkles, FileText, AlertTriangle } from "lucide-react";
+import { Card, Label, Badge, Button, SectionTitle, Modal } from "@/components/ui";
+import { RunEstimate } from "@/components/app/shared";
+import { useStore } from "@/store/useStore";
+import { contractTerms } from "@/lib/industries";
+
+export default function AIAnalysis() {
+  const { id } = useParams<{ id: string }>(); const s = useStore();
+  const sum = s.aiSummaries.find((x) => x.tenderId === id);
+  const [open, setOpen] = useState(false); const [running, setRunning] = useState(false); const [model, setModel] = useState(s.profile.model as string);
+  const run = () => { setRunning(true); setTimeout(() => { s.generateSummary(id); s.extractRequirements(id); setRunning(false); setOpen(false); }, 1800); };
+  const gTone = (g: string) => (g === "GO" ? "green" : g === "NO-GO" ? "red" : g === "CONDITIONAL GO" ? "yellow" : "outline");
+  return (
+    <div>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div><h2 className="font-display text-xl text-app-text">AI Document Intelligence</h2><p className="text-xs text-app-muted">{sum ? `Generated ${new Date(sum.generatedAt).toLocaleString()} · model ${sum.model} · every finding cites its source and needs human verification` : "No analysis yet. Upload documents, then analyse."}</p></div>
+        <Button variant="primary" onClick={() => setOpen(true)}><Sparkles size={13} /> {sum ? "Re-analyse documents" : "Analyze Documents"}</Button>
+      </div>
+      {!sum && <Card className="p-8 text-center text-xs text-app-dim">Run analysis to produce the executive summary, requirement extraction, contract term review and a reasoned bid recommendation.</Card>}
+      {sum && (
+        <div className="space-y-4">
+          <Card className="border-app-accent/40 p-4"><div className="flex items-center justify-between"><Label>Bid recommendation (AI — requires Go/No-Go decision)</Label><Badge tone={gTone(sum.recommendation.verdict)}>{sum.recommendation.verdict}</Badge></div><p className="mt-2 text-[13px] leading-relaxed text-app-text">{sum.recommendation.reasoning}</p><p className="mt-2 text-[11px] text-app-dim">This is a recommendation with reasoning, not a decision. Record the decision in Go/No-Go; management may override with a reason.</p></Card>
+          <div className="grid gap-4 md:grid-cols-2">
+            {Object.entries(sum.sections).map(([k, v]) => <Card key={k} className="p-4"><Label className="mb-2">{k}</Label><ul className="space-y-1.5 text-[13px] text-app-text">{v.map((x, i) => <li key={i} className="flex gap-2"><span className="text-app-accent">—</span>{x}</li>)}</ul></Card>)}
+          </div>
+          <div><SectionTitle right={`${sum.contractTerms.length} of ${contractTerms.length} standard terms reviewed`}>Contract / terms analysis</SectionTitle>
+            <Card className="divide-y divide-app-border">
+              {contractTerms.map((term) => { const f = sum.contractTerms.find((x) => x.term === term); return (
+                <div key={term} className="flex items-start justify-between gap-4 px-4 py-2.5 text-[13px]">
+                  <div className="w-44 shrink-0 text-app-muted">{term}</div>
+                  <div className="flex-1">{f ? <><p className="text-app-text">{f.finding}</p><p className="mt-0.5 flex items-center gap-1 text-[11px] text-app-dim"><FileText size={10} /> {f.source}</p></> : <p className="text-[11px] italic text-app-dim">Not found in indexed documents — verify manually.</p>}</div>
+                  {f && <Badge tone={f.risk === "High" ? "red" : f.risk === "Medium" ? "yellow" : "green"}>{f.risk}</Badge>}
+                </div>
+              ); })}
+            </Card></div>
+          <Card className="flex items-start gap-3 p-4 text-xs text-app-muted"><AlertTriangle size={14} className="mt-0.5 shrink-0 text-app-yellow" />The system never presents AI assumptions as confirmed facts. Extracted requirements are listed under Requirements with status <em>Needs Verification</em> until a reviewer approves, edits or rejects them. Every run is recorded in Administration → AI Governance.</Card>
+        </div>
+      )}
+      <Modal open={open} onClose={() => setOpen(false)} title="Analyze documents" sub="Extracts general information, requirements with citations, contract terms and a reasoned recommendation.">
+        <RunEstimate docs={s.docs} model={model} setModel={setModel} />
+        <div className="mt-4 flex justify-end gap-2"><Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button><Button variant="primary" onClick={run} disabled={running || !s.docs.length}><Sparkles size={13} /> {running ? "Analysing…" : "Run analysis"}</Button></div>
+      </Modal>
+    </div>
+  );
+}
