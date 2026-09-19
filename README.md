@@ -52,6 +52,11 @@ Light / dark / system toggle plus five accent themes (Ember, Ocean, Emerald, Vio
 ## Charts
 `src/components/app/charts.tsx`: animated horizontal bars, columns, donut, area/line with crosshair tooltip, KPI count-up. Categorical palette is fixed-order and validated (dataviz six checks) against the dark surface.
 
+## Real document analysis
+`POST /api/analyze` (`src/app/api/analyze/route.ts`) extracts text server-side from PDF (`pdf-parse`), DOCX (`mammoth`) or text files, then asks the LLM (Anthropic → Groq fallback, `src/lib/server/llm.ts`) for strict JSON: general info, executive summary, cited requirements (page/section/clause), contract-term review, clause positions, clarifications, risks, compliance items, deliverables, quantities and a reasoned Go/No-Go recommendation. `runTenderAnalysis()` in the store writes everything as AI-pending into the registers. Uploads in Documents are indexed on the spot; "Analyze" runs per-document extraction.
+
+Demo tender **t5 — Smart Water Meters, Dhahran Community (Saudi Aramco GSC 8142331)** ships with the real SOW text indexed and a human-verified review (31 requirements, 10 clarifications, 5 clause positions, 10 risks, 12 compliance items, CONDITIONAL GO).
+
 ## Agent chat (Claude API)
 Chat mode talks to specialist agents grounded in the active tender's data. `POST /api/chat` (`src/app/api/chat/route.ts`) streams a reply from `claude-opus-5` via the official `@anthropic-ai/sdk`, with the workspace snapshot as cached system context and persona rules (cite sources, never fabricate, drafts need human acceptance). Providers (first configured wins): `ANTHROPIC_API_KEY` → Claude via the official SDK; else `GROQ_API_KEY` (+ optional `GROQ_MODEL`, default `openai/gpt-oss-120b`) → Groq's OpenAI-compatible streaming endpoint. Put keys in `.env.local` (gitignored; see `.env.example`). With neither, the UI shows a clearly labelled offline summary. Every reply is logged in AI Governance.
 
@@ -61,7 +66,7 @@ Chat mode talks to specialist agents grounded in the active tender's data. `POST
 ## Not yet built (next steps)
 1. Backend (spec: Laravel API + Postgres) replacing the zustand store; n8n intake for WhatsApp/email/website.
 2. Real auth / SSO and per-organisation tenancy enforcement server-side.
-3. LLM wiring for analysis, extraction and proposal drafting with document retrieval (chat is wired; the Generate/Extract buttons still simulate).
+3. LLM wiring for proposal drafting and the register "Generate" buttons (analysis, extraction and chat are wired).
 4. True DOCX/XLSX/PPTX/ZIP package export (currently CSV / HTML-doc / JSON manifest).
 5. Approval-workflow builder and configurable Go/No-Go weights in the template builder.
 6. Invoices & payments (deferred by product owner).

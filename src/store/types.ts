@@ -48,7 +48,7 @@ export interface Vendor { id: string; name: string; type?: string; industry?: st
 export interface ProcPackage { id: string; tenderId?: string; name: string; category: "Material" | "Equipment" | "Software" | "Services" | "Subcontractors" | "Logistics" | "Other"; requirement: string; status: "Requirement" | "RFQ sent" | "Quotations" | "Evaluation" | "Approval" | "Purchased"; recommendedVendorId?: string; weights: { price: number; lead: number; quality: number; compliance: number }; }
 export interface Quotation { id: string; packageId: string; vendorId: string; price: number; currency: string; leadWeeks: number; quality: 1 | 2 | 3 | 4 | 5; compliance: number; scope: string; notes: string; receivedAt: string; }
 
-export interface Doc { tenderId?: string; id: string; name: string; size: number; rev: number; kind: string; status: "INDEXED" | "PROCESSING" | "FAILED"; uploadedAt: string; uploadedBy?: string; language?: string; confidentiality?: "Public" | "Internal" | "Confidential" | "Restricted"; permissions?: string[]; history?: { rev: number; at: string; by: string; note: string }[]; analysis?: Record<string, string>; }
+export interface Doc { tenderId?: string; id: string; name: string; size: number; rev: number; kind: string; status: "INDEXED" | "PROCESSING" | "FAILED"; uploadedAt: string; uploadedBy?: string; language?: string; confidentiality?: "Public" | "Internal" | "Confidential" | "Restricted"; permissions?: string[]; history?: { rev: number; at: string; by: string; note: string }[]; analysis?: Record<string, string>; text?: string; pages?: number; }
 
 export type ReviewStatus = "Draft" | "Internal Review" | "Approved" | "Answered" | "Closed" | "Pending" | "Rejected";
 export type Confidence = "High" | "Medium" | "Low";

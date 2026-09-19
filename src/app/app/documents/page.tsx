@@ -13,10 +13,12 @@ export default function DocumentsPage() {
   const tender = s.tenders.find((t) => t.id === s.activeTenderId); const ind = useIndustry(tender?.industry || "other");
   const fileRef = useRef<HTMLInputElement>(null); const dirRef = useRef<HTMLInputElement>(null);
   const [over, setOver] = useState(false); const [detail, setDetail] = useState<Doc | null>(null); const [analysing, setAnalysing] = useState<string | null>(null);
-  const take = (files: FileList | null) => { if (!files) return; s.addDocs(Array.from(files).map((f) => ({ name: f.name, size: f.size }))); };
+  const take = (files: FileList | null) => { if (!files) return; void s.uploadDocs(Array.from(files)); };
+  const [err, setErr] = useState<string | null>(null);
   const mb = (n: number) => `${(n / 1024 / 1024).toFixed(1)} MB`;
   const types = Array.from(new Set([...ind.documentTypes, ...s.docs.map((d) => d.kind)]));
-  const analyse = (d: Doc) => { setAnalysing(d.id); setTimeout(() => { setDocs(d.id, { analysis: { Title: d.name.replace(/\.[^.]+$/, ""), Reference: tender?.reference || "—", Client: tender?.client || "—", Issuer: tender?.client || "—", Industry: ind.name, Location: tender?.region || "—", "Key dates": tender?.closing ? `Submission ${tender.closing}` : "not found", Value: tender?.value ? `${tender.currency} ${tender.value.toLocaleString()}` : "not found", Duration: "not found", "Tender type": tender?.tenderType || "—" } }); s.logAI({ model: s.profile.model, promptVersion: "doc-analyze v2", task: "Document analysis", sources: [d.name], input: "Extract general information", outputSummary: "10 fields; missing marked 'not found'", confidence: "Medium", reviewStatus: "Pending" }); setAnalysing(null); }, 1400); };
+  const analyse = async (d: Doc) => { setAnalysing(d.id); setErr(null); const e = await s.analyzeDocument(d.id); if (e) setErr(e); setAnalysing(null); };
+  const analyseLegacy = (d: Doc) => { setAnalysing(d.id); setTimeout(() => { setDocs(d.id, { analysis: { Title: d.name.replace(/\.[^.]+$/, ""), Reference: tender?.reference || "—", Client: tender?.client || "—", Issuer: tender?.client || "—", Industry: ind.name, Location: tender?.region || "—", "Key dates": tender?.closing ? `Submission ${tender.closing}` : "not found", Value: tender?.value ? `${tender.currency} ${tender.value.toLocaleString()}` : "not found", Duration: "not found", "Tender type": tender?.tenderType || "—" } }); s.logAI({ model: s.profile.model, promptVersion: "doc-analyze v2", task: "Document analysis", sources: [d.name], input: "Extract general information", outputSummary: "10 fields; missing marked 'not found'", confidence: "Medium", reviewStatus: "Pending" }); setAnalysing(null); }, 1400); };
   const conf = (c?: Doc["confidentiality"]) => c === "Restricted" ? "red" : c === "Confidential" ? "yellow" : "outline";
 
   return (
@@ -40,11 +42,11 @@ export default function DocumentsPage() {
               <tr key={d.id}>
                 <td className="px-3 py-2"><button onClick={() => setDetail(d)} className="flex items-center gap-2 text-left hover:text-app-accent"><FileText size={14} className="text-app-muted" /><span><span className="block text-app-text">{d.name}</span><span className="text-[11px] text-app-muted">{mb(d.size)}</span></span></button></td>
                 <td className="px-3 py-2"><Select className="py-1 text-xs" value={d.kind} onChange={(e) => setDocs(d.id, { kind: e.target.value })}>{types.map((x) => <option key={x}>{x}</option>)}</Select></td>
-                <td className="px-3 py-2 font-mono text-xs text-app-muted">rev {d.rev}</td>
+                <td className="px-3 py-2 font-mono text-xs text-app-muted">rev {d.rev}{d.pages ? <span className="block text-[10px] text-app-dim">{d.pages} pp · {d.text ? "indexed text" : "no text"}</span> : null}</td>
                 <td className="px-3 py-2"><Select className="py-1 text-xs" value={d.language || "English"} onChange={(e) => setDocs(d.id, { language: e.target.value })}>{["English", "French", "Arabic", "Spanish", "Portuguese", "Norwegian", "Other"].map((x) => <option key={x}>{x}</option>)}</Select></td>
                 <td className="px-3 py-2"><Select className={cn("py-1 text-xs", `text-app-${conf(d.confidentiality) === "outline" ? "muted" : conf(d.confidentiality)}`)} value={d.confidentiality || "Internal"} onChange={(e) => setDocs(d.id, { confidentiality: e.target.value as Doc["confidentiality"] })}>{["Public", "Internal", "Confidential", "Restricted"].map((x) => <option key={x}>{x}</option>)}</Select></td>
                 <td className="px-3 py-2 text-xs text-app-muted">{new Date(d.uploadedAt).toLocaleDateString()}<br />{d.uploadedBy || s.currentUser}</td>
-                <td className="px-3 py-2"><Badge tone={d.status === "INDEXED" ? "accent" : d.status === "PROCESSING" ? "yellow" : "red"}>{d.status}</Badge></td>
+                <td className="px-3 py-2"><Badge tone={d.status === "INDEXED" ? "accent" : d.status === "PROCESSING" ? "yellow" : "red"}>{d.status === "PROCESSING" ? "EXTRACTING…" : d.status}</Badge>{d.status === "FAILED" && d.analysis?.Error && <p className="mt-1 max-w-[160px] text-[10px] text-app-red">{d.analysis.Error}</p>}</td>
                 <td className="px-3 py-2"><div className="flex gap-2"><Button size="sm" variant="outline" disabled={d.status !== "INDEXED" || analysing === d.id} onClick={() => analyse(d)}><Sparkles size={11} /> {analysing === d.id ? "Analysing…" : d.analysis ? "Re-analyse" : "Analyze"}</Button><button onClick={() => s.deleteDoc(d.id)} className="text-app-dim hover:text-app-red"><Trash2 size={13} /></button></div></td>
               </tr>
             ))}
@@ -52,6 +54,8 @@ export default function DocumentsPage() {
           </tbody>
         </table>
       </div>
+      {err && <p className="mt-3 rounded border border-app-red/40 bg-app-red/10 px-3 py-2 text-xs text-app-red">{err}</p>}
+      <div className="mt-4 flex flex-wrap items-center gap-3 rounded border border-app-accent/30 bg-app-accent/5 px-4 py-3"><Sparkles size={14} className="text-app-accent" /><p className="flex-1 text-xs text-app-text">Run the <span className="font-semibold">full AI review</span> of this tender from the indexed documents — summary, cited requirements, contract terms, clarifications, risks, compliance and deliverables.</p><Link href={`/app/tenders/${s.activeTenderId}/ai-analysis`}><Button variant="primary" size="sm"><Sparkles size={11} /> Open AI Analysis</Button></Link></div>
       <p className="mt-3 text-xs text-app-dim">Document analysis extracts general information per file. Requirements, contract terms and the summary are generated on the tender&apos;s <Link href={`/app/tenders/${s.activeTenderId}/ai-analysis`} className="text-app-accent">AI Analysis</Link> tab.</p>
 
       <Modal open={!!detail} onClose={() => setDetail(null)} title={detail?.name} sub={detail ? `${detail.kind} · rev ${detail.rev} · ${mb(detail.size)}` : ""} wide>

@@ -4,6 +4,7 @@ import { persist, createJSONStorage } from "zustand/middleware";
 import * as seed from "./seed";
 import * as seed2 from "./seed2";
 import * as seed3 from "./seed3";
+import * as seed4 from "./seed4";
 import { goNoGoCriteria, type IndustryTemplate } from "@/lib/industries";
 import type * as T from "./types";
 
@@ -71,6 +72,10 @@ interface State {
 
   addDocs: (files: { name: string; size: number }[]) => void;
   deleteDoc: (id: string) => void; updateDoc: (id: string, p: Partial<T.Doc>) => void;
+  uploadDocs: (files: File[]) => Promise<void>;
+  analyzeDocument: (id: string) => Promise<string | null>;
+  runTenderAnalysis: (tenderId: string) => Promise<string | null>;
+  analysisBusy: boolean;
   runExtraction: () => void;
 
   updateClarification: (id: string, patch: Partial<T.Clarification>) => void;
@@ -98,15 +103,15 @@ interface State {
 }
 
 const initial = () => ({
-  tenders: [...seed.tenders, seed3.tender4], activeTenderId: "t1", actions: [...seed.actions, ...seed3.actions], projects: seed3.projects, vendors: seed.vendors, docs: [...seed.docs, ...seed3.docs],
-  clarifications: [...seed.clarifications, ...seed3.clarifications], clauses: [...seed.clauses, ...seed3.clauses], qualifications: [...seed.qualifications, ...seed3.qualifications], risks: [...seed.risks, ...seed3.risks], deliverables: [...seed.deliverables, ...seed3.deliverables],
-  costLines: [...seed.costLines, ...seed3.costLines], milestones: [...seed.milestones, ...seed3.milestones], competitors: [...seed.competitors, ...seed3.competitors], lessons: [...seed3.lessons, ...seed.lessons], procPackages: [...seed.procPackages, ...seed3.procPackages], quotations: [...seed.quotations, ...seed3.quotations], submissions: seed3.submissions, chat: [] as T.ChatMsg[], chatBusy: false,
+  tenders: [...seed.tenders, seed3.tender4, seed4.tender], activeTenderId: "t5", actions: [...seed.actions, ...seed3.actions, ...seed4.actions], projects: seed3.projects, vendors: seed.vendors, docs: [...seed.docs, ...seed3.docs, seed4.doc],
+  clarifications: [...seed.clarifications, ...seed3.clarifications, ...seed4.clarifications], clauses: [...seed.clauses, ...seed3.clauses, ...seed4.clauses], qualifications: [...seed.qualifications, ...seed3.qualifications, ...seed4.qualifications], risks: [...seed.risks, ...seed3.risks, ...seed4.risks], deliverables: [...seed.deliverables, ...seed3.deliverables, ...seed4.deliverables],
+  costLines: [...seed.costLines, ...seed3.costLines, ...seed4.costLines], milestones: [...seed.milestones, ...seed3.milestones], competitors: [...seed.competitors, ...seed3.competitors], lessons: [...seed3.lessons, ...seed.lessons], procPackages: [...seed.procPackages, ...seed3.procPackages, ...seed4.procPackages], quotations: [...seed.quotations, ...seed3.quotations], submissions: seed3.submissions, chat: [] as T.ChatMsg[], chatBusy: false, analysisBusy: false,
   profile: { name: "Jordan Reyes", email: "j.reyes@northstar.example", model: "Lite" as const }, margin: 12, lastExtraction: new Date("2026-09-16T14:33:18").toISOString(),
   industryFilter: "all", org: seed2.org, users: seed2.users, currentUser: "Jordan Reyes",
-  companies: seed2.companies, contacts: seed2.contacts, opportunities: seed2.opportunities, activities: seed2.activities,
-  requirements: seed2.requirements, complianceItems: seed2.complianceItems, capabilities: seed2.capabilities, aiSummaries: seed2.aiSummaries,
+  companies: [...seed2.companies, seed4.company], contacts: [...seed2.contacts, seed4.contact], opportunities: [...seed2.opportunities, seed4.opportunity], activities: [...seed4.activities, ...seed2.activities],
+  requirements: [...seed2.requirements, ...seed4.requirements], complianceItems: [...seed2.complianceItems, ...seed4.complianceItems], capabilities: seed2.capabilities, aiSummaries: [...seed2.aiSummaries, seed4.aiSummary],
   reviews: [...seed2.reviews, ...seed3.reviews], approvals: [...seed2.approvals, ...seed3.approvals], priceVersions: [...seed2.priceVersions, ...seed3.priceVersions], proposalSections: [...seed2.proposalSections, ...seed3.proposalSections], bidResults: seed3.bidResults,
-  inquiries: seed2.inquiries, contracts: seed3.contracts, auditLog: seed2.auditLog, aiLog: seed2.aiLog, notifications: seed2.notifications, customIndustries: [],
+  inquiries: seed2.inquiries, contracts: seed3.contracts, auditLog: seed2.auditLog, aiLog: [...seed4.aiLog, ...seed2.aiLog], notifications: [...seed4.notifications, ...seed2.notifications], customIndustries: [],
 });
 
 const patchIn = <X extends { id: string }>(arr: X[], id: string, patch: Partial<X>) => arr.map((x) => (x.id === id ? { ...x, ...patch } : x));
@@ -154,6 +159,75 @@ export const useStore = create<State>()(
       },
       deleteDoc: (id) => { set((s) => ({ docs: s.docs.filter((d) => d.id !== id) })); get().audit("Deleted", "Document", id, ""); },
       updateDoc: (id, p) => set((s) => ({ docs: patchIn(s.docs, id, p) })),
+
+      /** Real upload: extracts text server-side (PDF/DOCX/TXT) and indexes it for analysis and chat. */
+      uploadDocs: async (files) => {
+        const tid = get().activeTenderId;
+        for (const f of files) {
+          const id = uid();
+          set((s) => ({ docs: [...s.docs, { id, tenderId: tid, name: f.name, size: f.size, rev: 0, kind: guessKind(f.name), status: "PROCESSING", uploadedAt: new Date().toISOString(), uploadedBy: s.currentUser, language: "English", confidentiality: "Internal" }] }));
+          try {
+            const fd = new FormData(); fd.append("file", f); fd.append("mode", "extract");
+            const res = await fetch("/api/analyze", { method: "POST", body: fd });
+            const j = await res.json();
+            if (!res.ok) throw new Error(j.error || `HTTP ${res.status}`);
+            set((s) => ({ docs: patchIn(s.docs, id, { status: "INDEXED", text: String(j.text || "").slice(0, 200_000), pages: j.pages }) }));
+            get().audit("Uploaded", "Document", id, `${f.name} · ${j.pages} page(s)`);
+          } catch (e) {
+            set((s) => ({ docs: patchIn(s.docs, id, { status: "FAILED", analysis: { Error: e instanceof Error ? e.message : "extraction failed" } }) }));
+          }
+        }
+      },
+      analyzeDocument: async (id) => {
+        const d = get().docs.find((x) => x.id === id); if (!d) return "Document not found";
+        if (!d.text) return "No extracted text for this document — re-upload it so it can be indexed.";
+        try {
+          const res = await fetch("/api/analyze", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ mode: "document", name: d.name, text: d.text }) });
+          const j = await res.json(); if (!res.ok) return j.error || `HTTP ${res.status}`;
+          set((s) => ({ docs: patchIn(s.docs, id, { analysis: j.analysis }) }));
+          get().logAI({ model: j.provider, promptVersion: "doc-analyze v3", task: "Document analysis", sources: [d.name], input: "Extract general information", outputSummary: `${Object.keys(j.analysis || {}).length} fields`, confidence: "Medium", reviewStatus: "Pending" });
+          return null;
+        } catch (e) { return e instanceof Error ? e.message : "analysis failed"; }
+      },
+      /** Full AI review of a tender from its indexed documents: summary, requirements, clauses, clarifications, risks, compliance, deliverables, metadata. Everything lands as AI-pending for human review. */
+      runTenderAnalysis: async (tenderId) => {
+        const s0 = get(); const t = s0.tenders.find((x) => x.id === tenderId); if (!t) return "Tender not found";
+        const docs = scoped(s0.docs, tenderId).filter((d) => d.status === "INDEXED" && d.text);
+        if (!docs.length) return "No indexed documents with text. Upload the ITT/RFP/SOW (PDF or DOCX) first.";
+        set({ analysisBusy: true });
+        try {
+          const text = docs.map((d) => `===== DOCUMENT: ${d.name} =====\n${d.text}`).join("\n\n");
+          const context = { organisation: s0.org.name, capabilities: s0.capabilities.map((c) => `${c.name}: ${c.value}`), industryHint: t.industry, tenderName: t.name };
+          const res = await fetch("/api/analyze", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ mode: "tender", name: t.name, text, context }) });
+          const j = await res.json(); if (!res.ok) return j.error || `HTTP ${res.status}`;
+          const r = j.result as Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
+          const now = new Date().toISOString(); const src = docs[0].name;
+          const g = r.general || {};
+          const ns = (arr: unknown): string[] => (Array.isArray(arr) ? arr.map(String).filter(Boolean) : []);
+          set((s) => {
+            const nClar = scoped(s.clarifications, tenderId).length, nClause = scoped(s.clauses, tenderId).length, nRisk = scoped(s.risks, tenderId).length, nDel = scoped(s.deliverables, tenderId).length;
+            const meta: Record<string, string> = { ...s.tenders.find((x) => x.id === tenderId)!.metadata };
+            const mm: [string, unknown][] = [["Client", g.client], ["Issuer", g.issuer], ["Project", g.project], ["Contract type", g.contractType], ["Pricing basis", g.pricingBasis], ["Submission deadline", g.submissionDeadline], ["Duration", g.duration], ["Location", g.location], ["Key dates", ns(g.keyDates).join("; ")]];
+            mm.forEach(([k, v]) => { if (v && String(v) !== "not stated") meta[k] = String(v); });
+            const dl = String(g.submissionDeadline || ""); const validDate = /^\d{4}-\d{2}-\d{2}$/.test(dl);
+            return {
+              tenders: patchIn(s.tenders, tenderId, { metadata: meta, reference: t.reference || (g.reference && g.reference !== "not stated" ? String(g.reference) : ""), client: t.client || String(g.client || ""), industry: t.industry === "other" && g.industry ? String(g.industry) : t.industry, service: t.service || String(g.service || ""), tenderType: g.tenderType && t.tenderType === "Tender" ? String(g.tenderType) : t.tenderType, closing: t.closing || (validDate ? dl : ""), stage: t.stage === "Analysis" ? "Qualification" : t.stage }),
+              lastExtraction: now,
+              aiSummaries: [...s.aiSummaries.filter((a) => a.tenderId !== tenderId), { tenderId, generatedAt: now, model: j.provider, sections: Object.fromEntries(Object.entries(r.summary || {}).map(([k, v]) => [k, ns(v)])), recommendation: { verdict: (r.recommendation?.verdict as T.GoNoGo) || "Pending", reasoning: `${r.recommendation?.reasoning || ""}${ns(r.recommendation?.conditions).length ? " Conditions: " + ns(r.recommendation?.conditions).join("; ") : ""}` }, contractTerms: (r.contractTerms || []).map((c: Record<string, string>) => ({ term: c.term, finding: c.finding, risk: (c.risk as "High" | "Medium" | "Low") || "Medium", source: c.source || src })) }],
+              requirements: [...s.requirements.filter((q) => !(q.tenderId === tenderId && q.ai && q.status === "Needs Verification")), ...(r.requirements || []).map((q: Record<string, unknown>) => ({ id: uid(), tenderId, text: String(q.text), category: String(q.category || "Other"), priority: (q.priority as T.Requirement["priority"]) || "Must", sourceDoc: src, page: Number(q.page) || 0, section: String(q.section || ""), clause: String(q.clause || q.section || ""), evidence: String(q.evidence || ""), status: "Needs Verification" as const, reviewer: "", comments: "", ai: true, confidence: (q.confidence as T.Confidence) || "Medium" }))],
+              clauses: [...s.clauses, ...(r.clauses || []).map((c: Record<string, unknown>, i: number) => ({ id: uid(), tenderId, n: nClause + i + 1, ref: String(c.ref || ""), title: String(c.title || ""), category: String(c.category || "Other"), relevance: (c.relevance as T.Clause["relevance"]) || "Medium", markup: String(c.markup || ""), analysis: `${c.analysis || ""} (p.${c.page ?? "?"})`, status: "Pending" as const, confidence: "Medium" as const, pending: true, author: "VendorIQ AI", createdAt: now }))],
+              clarifications: [...s.clarifications, ...(r.clarifications || []).map((c: Record<string, unknown>, i: number) => ({ id: uid(), tenderId, n: nClar + i + 1, ref: String(c.ref || ""), round: 1, category: (c.category as T.Clarification["category"]) || "Technical", title: String(c.title || ""), analysis: `${c.question || ""} (p.${c.page ?? "?"})`, status: "Draft" as const, confidence: (c.confidence as T.Confidence) || "Medium", assignee: "", due: "", author: "VendorIQ AI", createdAt: now, pending: true }))],
+              risks: [...s.risks, ...(r.risks || []).map((k: Record<string, unknown>, i: number) => ({ id: uid(), tenderId, n: nRisk + i + 1, kind: "Risk" as const, title: String(k.title || ""), description: String(k.description || ""), category: String(k.category || "Commercial"), probability: Math.min(5, Math.max(1, Number(k.probability) || 3)), impact: Math.min(5, Math.max(1, Number(k.impact) || 3)), postProbability: Math.max(1, (Number(k.probability) || 3) - 1), postImpact: Math.min(5, Math.max(1, Number(k.impact) || 3)), owner: "", status: "Open" as const, mitigation: String(k.mitigation || ""), contingency: 0 }))],
+              complianceItems: [...s.complianceItems, ...(r.compliance || []).filter((c: Record<string, unknown>) => !s.complianceItems.some((x) => x.tenderId === tenderId && x.item === c.item)).map((c: Record<string, unknown>) => ({ id: uid(), tenderId, item: String(c.item), status: "Needs Review" as const, evidence: "", owner: "", notes: `${c.evidence || ""} · ${c.source || src}` }))],
+              deliverables: [...s.deliverables, ...(r.deliverables || []).filter((d: Record<string, unknown>) => !s.deliverables.some((x) => (x.tenderId ?? "t1") === tenderId && x.name === d.name)).map((d: Record<string, unknown>, i: number) => ({ id: uid(), tenderId, n: nDel + i + 1, name: String(d.name), type: (d.type as T.Deliverable["type"]) || "Technical", owner: "", status: "Not started" as const, due: "" }))],
+            };
+          });
+          get().logAI({ model: j.provider, promptVersion: "tender-review v1", task: "Full tender AI review", sources: docs.map((d) => d.name), input: `${j.chars} chars${j.truncated ? " (truncated)" : ""}`, outputSummary: `${(r.requirements || []).length} requirements · ${(r.clauses || []).length} clauses · ${(r.clarifications || []).length} clarifications · ${(r.risks || []).length} risks · ${(r.compliance || []).length} compliance · verdict ${r.recommendation?.verdict}`, confidence: "Medium", reviewStatus: "Pending" });
+          get().notify("AI analysis completed", `AI review of ${t.name} is ready — ${(r.requirements || []).length} requirements need verification.`, `/app/tenders/${tenderId}/ai-analysis`);
+          get().audit("AI review", "Tender", tenderId, `Provider ${j.provider}`);
+          return null;
+        } catch (e) { return e instanceof Error ? e.message : "analysis failed"; } finally { set({ analysisBusy: false }); }
+      },
       runExtraction: () => set({ lastExtraction: new Date().toISOString() }),
 
       updateClarification: (id, patch) => set((s) => ({ clarifications: patchIn(s.clarifications, id, patch) })),
@@ -314,7 +388,7 @@ export const useStore = create<State>()(
       deleteCustomIndustry: (id) => set((s) => ({ customIndustries: s.customIndustries.filter((c) => c.id !== id) })),
       reset: () => set(initial()),
     }),
-    { name: "vendoriq-tenderos", storage: createJSONStorage(() => localStorage), version: 3, migrate: () => initial() as unknown as State }
+    { name: "vendoriq-tenderos", storage: createJSONStorage(() => ({ getItem: (k) => localStorage.getItem(k), setItem: (k, v) => { try { localStorage.setItem(k, v); } catch { console.warn("VendorIQ: local storage quota exceeded — state kept in memory only for this session."); } }, removeItem: (k) => localStorage.removeItem(k) })), version: 4, migrate: () => initial() as unknown as State, partialize: (s) => ({ ...s, chatBusy: false, analysisBusy: false }) as State }
   )
 );
 
