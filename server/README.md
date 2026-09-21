@@ -5,9 +5,9 @@ Multi-tenant REST API for the VendorIQ frontend. Every business record is scoped
 ## Run locally
 ```bash
 cd server && npm install
-npm run dev:memory        # in-memory MongoDB, no install needed (data resets on restart)
-# or with a real database:
-cp .env.example .env      # set MONGODB_URI, JWT_SECRET, CORS_ORIGIN
+npm run dev               # no MONGODB_URI? → starts an in-memory MongoDB automatically (data resets on restart)
+# for persistence, put your Atlas URI in server/.env:
+#   MONGODB_URI=mongodb+srv://USER:PASSWORD@cluster0.xxxxx.mongodb.net/vendoriq
 npm run dev
 npm test                  # end-to-end smoke test (17 checks) on in-memory MongoDB
 ```

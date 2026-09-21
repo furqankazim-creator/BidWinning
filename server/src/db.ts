@@ -1,15 +1,22 @@
 import mongoose from "mongoose";
 
 export async function connectDb() {
-  if (process.env.USE_MEMORY_DB === "1") {
+  const uri = process.env.MONGODB_URI;
+  const useMemory = process.env.USE_MEMORY_DB === "1" || !uri;
+  if (useMemory) {
+    if (!uri) console.warn("[db] MONGODB_URI is not set — starting an in-memory MongoDB for local development. Data is lost when the server stops. Set MONGODB_URI in server/.env (see .env.example) for persistence.");
     const { MongoMemoryServer } = await import("mongodb-memory-server");
     const mem = await MongoMemoryServer.create();
     await mongoose.connect(mem.getUri("vendoriq"));
-    console.log("[db] in-memory MongoDB started (data is lost on restart)");
+    console.log("[db] in-memory MongoDB ready");
     return;
   }
-  const uri = process.env.MONGODB_URI;
-  if (!uri) throw new Error("MONGODB_URI is not set (or set USE_MEMORY_DB=1 for local dev)");
-  await mongoose.connect(uri);
-  console.log("[db] connected to MongoDB");
+  try {
+    await mongoose.connect(uri, { serverSelectionTimeoutMS: 10000 });
+    console.log("[db] connected to MongoDB");
+  } catch (e) {
+    console.error("[db] could not connect to MONGODB_URI:", e instanceof Error ? e.message : e);
+    console.error("[db] check the connection string, database user/password and Atlas IP allow-list (0.0.0.0/0 for hosted APIs).");
+    throw e;
+  }
 }
