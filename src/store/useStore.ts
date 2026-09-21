@@ -6,6 +6,7 @@ import * as seed2 from "./seed2";
 import * as seed3 from "./seed3";
 import * as seed4 from "./seed4";
 import { goNoGoCriteria, type IndustryTemplate } from "@/lib/industries";
+import { pushAudit } from "./sync";
 import type * as T from "./types";
 
 const uid = () => Math.random().toString(36).slice(2, 10);
@@ -299,7 +300,7 @@ export const useStore = create<State>()(
       },
       updateProfile: (p) => set((s) => ({ profile: { ...s.profile, ...p } })),
       setIndustryFilter: (industryFilter) => set({ industryFilter }),
-      audit: (action, entity, entityId, detail) => set((s) => ({ auditLog: [{ id: uid(), at: new Date().toISOString(), user: s.currentUser, action, entity, entityId, detail }, ...s.auditLog] })),
+      audit: (action, entity, entityId, detail) => { set((s) => ({ auditLog: [{ id: uid(), at: new Date().toISOString(), user: s.currentUser, action, entity, entityId, detail }, ...s.auditLog] })); pushAudit({ action, entity, entityId, detail }); },
       logAI: (e) => set((s) => ({ aiLog: [{ ...e, id: uid(), at: new Date().toISOString(), user: s.currentUser }, ...s.aiLog] })),
       notify: (kind, text, href) => set((s) => ({ notifications: [{ id: uid(), at: new Date().toISOString(), kind, text, href, read: false }, ...s.notifications] })),
       markRead: (id) => set((s) => ({ notifications: s.notifications.map((n) => (!id || n.id === id ? { ...n, read: true } : n)) })),

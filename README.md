@@ -52,6 +52,18 @@ Light / dark / system toggle plus five accent themes (Ember, Ocean, Emerald, Vio
 ## Charts
 `src/components/app/charts.tsx`: animated horizontal bars, columns, donut, area/line with crosshair tooltip, KPI count-up. Categorical palette is fixed-order and validated (dataviz six checks) against the dark surface.
 
+## Backend (Express + MongoDB) — `server/`
+Real multi-tenant persistence and auth. See [server/README.md](server/README.md) for endpoints, storage model and deploy steps.
+- **Auth**: email + password, JWT; first user creates the organisation and becomes Organization Admin; admins create 7-day **invite links** (`/sign-up?invite=…`) that assign a role. Viewer / Contractor roles are read-only server-side.
+- **Data**: every store collection is persisted per organisation via `PUT /api/data/:collection/sync` (debounced change-sync in `src/store/sync.ts`) and available as per-record REST. New organisations are seeded with the demo dataset so every page has content.
+- **Audit**: append-only server log fed by every `audit()` call; loaded into Administration → Audit Trail.
+- Frontend switches to the API when `NEXT_PUBLIC_API_URL` is set (top-bar cloud icon shows saved/saving/error); without it the app runs in local demo mode.
+```bash
+npm run api          # API on :4000 with in-memory MongoDB
+NEXT_PUBLIC_API_URL=http://localhost:4000 npm run dev
+npm run api:test     # 17-check API smoke test
+```
+
 ## Real document analysis
 `POST /api/analyze` (`src/app/api/analyze/route.ts`) extracts text server-side from PDF (`pdf-parse`), DOCX (`mammoth`) or text files, then asks the LLM (Anthropic → Groq fallback, `src/lib/server/llm.ts`) for strict JSON: general info, executive summary, cited requirements (page/section/clause), contract-term review, clause positions, clarifications, risks, compliance items, deliverables, quantities and a reasoned Go/No-Go recommendation. `runTenderAnalysis()` in the store writes everything as AI-pending into the registers. Uploads in Documents are indexed on the spot; "Analyze" runs per-document extraction.
 

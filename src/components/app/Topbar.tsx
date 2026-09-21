@@ -1,8 +1,10 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
-import { ChevronLeft, ChevronRight, Clock, Search, Bell, Filter } from "lucide-react";
+import { ChevronLeft, ChevronRight, Clock, Search, Bell, Filter, Cloud, CloudOff, LogOut } from "lucide-react";
+import { apiEnabled, setSession } from "@/lib/api";
+import { syncStatus } from "@/store/sync";
 import { useStore, daysLeft } from "@/store/useStore";
 import { allPagesFor } from "./nav";
 import { useUI } from "./ui-state";
@@ -15,7 +17,8 @@ export function Topbar() {
   const { tenders, activeTenderId, industryFilter, setIndustryFilter, notifications, markRead, org } = useStore();
   const { setPalette } = useUI();
   const industries = useIndustries();
-  const [bell, setBell] = useState(false);
+  const [bell, setBell] = useState(false); const [, tick] = useState(0);
+  useEffect(() => { const l = () => tick((n) => n + 1); syncStatus.listeners.add(l); return () => { syncStatus.listeners.delete(l); }; }, []);
   const tender = tenders.find((t) => t.id === activeTenderId);
   const page = allPagesFor(activeTenderId).find((p) => p.href === pathname);
   const crumb = page ? page.label : pathname.split("/").pop();
@@ -53,6 +56,8 @@ export function Topbar() {
           )}
         </div>
         <button onClick={() => setPalette(true)} className="rounded border border-app-border p-1.5 text-app-muted hover:text-app-text"><Search size={13} /></button>
+        <span title={apiEnabled() ? (syncStatus.lastError ? `Sync error: ${syncStatus.lastError}` : syncStatus.pending ? "Saving…" : "Saved to server") : "Demo mode — data stored in this browser only"} className={cn("flex items-center gap-1 text-[11px]", !apiEnabled() ? "text-app-dim" : syncStatus.lastError ? "text-app-red" : syncStatus.pending ? "text-app-yellow" : "text-app-green")}>{apiEnabled() ? <Cloud size={13} /> : <CloudOff size={13} />}<span className="hidden lg:inline">{!apiEnabled() ? "local" : syncStatus.lastError ? "error" : syncStatus.pending ? "saving" : "saved"}</span></span>
+        <button onClick={() => { setSession(null); router.push("/sign-in"); }} title="Sign out" className="rounded border border-app-border p-1.5 text-app-muted hover:text-app-text"><LogOut size={13} /></button>
       </div>
     </header>
   );

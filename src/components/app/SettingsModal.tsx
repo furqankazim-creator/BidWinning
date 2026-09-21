@@ -1,11 +1,13 @@
 "use client";
 import { useState } from "react";
 import { ArrowLeft, User, SlidersHorizontal, Sparkles, GraduationCap, Bot, CreditCard } from "lucide-react";
-import { Button, Input, Field, Select } from "@/components/ui";
+import { Button, Input, Field, Select, Label } from "@/components/ui";
 import { useUI } from "./ui-state";
 import { useStore } from "@/store/useStore";
 import { cn } from "@/lib/cn";
 import { brand } from "@/config/brand";
+import { apiEnabled, authApi, setSession } from "@/lib/api";
+import { useRouter } from "next/navigation";
 
 const tabs = [
   { id: "profile", label: "Profile", icon: User }, { id: "preferences", label: "Preferences", icon: SlidersHorizontal }, { id: "skills", label: "Skills", icon: Sparkles },
@@ -17,7 +19,8 @@ export function SettingsModal() {
   const { profile, updateProfile, reset } = useStore();
   const [tab, setTab] = useState("profile");
   const [form, setForm] = useState(profile);
-  const [saved, setSaved] = useState(false);
+  const [saved, setSaved] = useState(false); const router = useRouter();
+  const [pw, setPw] = useState({ current: "", next: "" }); const [pwMsg, setPwMsg] = useState("");
   if (!settings) return null;
 
   return (
@@ -37,6 +40,12 @@ export function SettingsModal() {
                 <Field label="Display name"><Input className="w-full py-2" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></Field>
                 <Field label="Email"><Input className="w-full py-2" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></Field>
                 <Button variant="primary" onClick={() => { updateProfile(form); setSaved(true); setTimeout(() => setSaved(false), 1500); }}>{saved ? "Saved" : "Save changes"}</Button>
+                {apiEnabled() && <div className="border-t border-app-border pt-4">
+                  <Label className="mb-2">Change password</Label>
+                  <div className="grid grid-cols-2 gap-2"><Input type="password" placeholder="Current" value={pw.current} onChange={(e) => setPw({ ...pw, current: e.target.value })} /><Input type="password" placeholder="New (min 8)" value={pw.next} onChange={(e) => setPw({ ...pw, next: e.target.value })} /></div>
+                  <div className="mt-2 flex items-center gap-3"><Button variant="outline" onClick={async () => { try { await authApi.changePassword(pw.current, pw.next); setPwMsg("Password changed"); setPw({ current: "", next: "" }); } catch (e) { setPwMsg(e instanceof Error ? e.message : "failed"); } }}>Update password</Button><span className="text-xs text-app-muted">{pwMsg}</span></div>
+                </div>}
+                <div className="border-t border-app-border pt-4"><Button variant="danger" onClick={() => { setSession(null); setSettings(false); router.push("/sign-in"); }}>Sign out</Button></div>
               </div>
             </>
           )}
