@@ -8,7 +8,7 @@ import type { Clause } from "@/store/types";
 
 export default function ContractRegister() {
   const s = useScopedStore();
-  const [q, setQ] = useState(""); const [rel, setRel] = useState("All"); const [add, setAdd] = useState(false); const [imp, setImp] = useState(false); const [gen, setGen] = useState(false);
+  const [q, setQ] = useState(""); const [rel, setRel] = useState("All"); const [add, setAdd] = useState(false); const [imp, setImp] = useState(false); const [gen, setGen] = useState(false); const [genErr, setGenErr] = useState<string | null>(null);
   const [form, setForm] = useState<Partial<Clause>>({ ref: "", title: "", category: "Liability", relevance: "Medium", markup: "", analysis: "" });
   const list = s.clauses.filter((c) => (c.title + c.markup + c.analysis + c.ref).toLowerCase().includes(q.toLowerCase()) && (rel === "All" || c.relevance === rel));
   const pending = s.clauses.filter((c) => c.pending).length;
@@ -18,7 +18,8 @@ export default function ContractRegister() {
   return (
     <div className="font-sans">
       <PageHeader title="Contract Register" sub={`${s.clauses.length} clause(s) · ${pending} pending review`} />
-      <RegisterToolbar onWord={() => exportWord("contract-register", "Contract Register", rows())} onExcel={() => exportCSV("contract-register", rows())} onImport={() => setImp(true)} importLabel="Import edits" onAdd={() => setAdd(true)} addLabel="Add entry" onGenerate={() => { setGen(true); setTimeout(() => { s.generateClauses(); setGen(false); }, 1500); }} generating={gen} />
+      {genErr && <p className="mb-3 rounded border border-app-red/40 bg-app-red/10 px-3 py-2 text-xs text-app-red">{genErr}</p>}
+      <RegisterToolbar onWord={() => exportWord("contract-register", "Contract Register", rows())} onExcel={() => exportCSV("contract-register", rows())} onImport={() => setImp(true)} importLabel="Import edits" onAdd={() => setAdd(true)} addLabel="Add entry" onGenerate={async () => { setGen(true); setGenErr(await s.runTenderAnalysis(s.activeTenderId)); setGen(false); }} generating={gen} />
       <div className="grid gap-5 xl:grid-cols-[1fr_260px]">
         <div>
           <SearchFilter q={q} setQ={setQ}><Select value={rel} onChange={(e) => setRel(e.target.value)}>{["All", "High", "Medium", "Low"].map((x) => <option key={x}>{x}</option>)}</Select></SearchFilter>

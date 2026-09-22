@@ -8,12 +8,13 @@ import { useScopedStore } from "@/store/useStore";
 const fields = ["Client", "Submission deadline", "Scope summary", "Bid validity", "Clarification deadline", "Clarification channel", "Contract type", "Governing law", "Payment terms", "Local content / entity"];
 
 export default function SetupPage() {
-  const { tenders, activeTenderId, updateTender, docs, deliverables, deleteDeliverable, runExtraction, lastExtraction, profile } = useScopedStore();
+  const { tenders, activeTenderId, updateTender, docs, deliverables, deleteDeliverable, runExtraction, runTenderAnalysis, lastExtraction, profile } = useScopedStore();
   const t = tenders.find((x) => x.id === activeTenderId);
   const [open, setOpen] = useState(false); const [running, setRunning] = useState(false); const [model, setModel] = useState(profile.model);
   if (!t) return null;
   const set = (k: string, v: string) => updateTender(t.id, { metadata: { ...t.metadata, [k]: v }, ...(k === "Submission deadline" ? { closing: v } : {}), ...(k === "Client" ? { client: v } : {}) });
-  const run = () => { setRunning(true); setTimeout(() => { runExtraction(); if (!Object.keys(t.metadata).length) updateTender(t.id, { metadata: Object.fromEntries(fields.map((f) => [f, f === "Client" ? t.client : ""])) }); setRunning(false); setOpen(false); }, 1600); };
+  const [runErr, setRunErr] = useState<string | null>(null);
+  const run = async () => { setRunning(true); setRunErr(null); const e = await runTenderAnalysis(t.id); if (e) setRunErr(e); else { runExtraction(); setOpen(false); } setRunning(false); };
 
   return (
     <div className="font-sans">
@@ -45,8 +46,9 @@ export default function SetupPage() {
       <Modal open={open} onClose={() => setOpen(false)} title="Setup extraction" sub="Pulls metadata, deliverables, milestones, and evaluation criteria - each cited, missing fields flagged.">
         <Label className="mb-2">Tender profile (injected as context)</Label>
         <div className="mb-4 flex gap-1.5"><Badge>Scope: {t.scope.split(" ")[0]}</Badge><Badge>Client term: {t.clientTerm.split("/")[0]}</Badge></div>
-        <RunEstimate docs={docs} model={model} setModel={(m) => setModel(m as "Lite" | "Max")} />
-        <div className="mt-4 flex justify-end gap-2"><Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button><Button variant="primary" onClick={run} disabled={running || docs.length === 0}><Sparkles size={13} /> {running ? "Extracting…" : "Run extraction"}</Button></div>
+        <RunEstimate docs={docs.filter((d) => d.status === "INDEXED")} model={model} setModel={(m) => setModel(m as "Lite" | "Max")} />
+        {runErr && <p className="mt-3 text-xs text-app-red">{runErr}</p>}
+        <div className="mt-4 flex justify-end gap-2"><Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button><Button variant="primary" onClick={run} disabled={running || !docs.some((d) => d.status === "INDEXED" && d.text)}><Sparkles size={13} /> {running ? "Extracting… (30–90 s)" : "Run extraction"}</Button></div>
       </Modal>
     </div>
   );

@@ -12,7 +12,7 @@ import { useIndustry } from "@/lib/useIndustries";
 export default function RiskRegister() {
   const s = useScopedStore();
   const ind = useIndustry(s.tenders.find((x) => x.id === s.activeTenderId)?.industry || "other");
-  const [cat, setCat] = useState("All"); const [kind, setKind] = useState("All"); const [edit, setEdit] = useState<Partial<Risk> | null>(null); const [gen, setGen] = useState(false);
+  const [cat, setCat] = useState("All"); const [kind, setKind] = useState("All"); const [edit, setEdit] = useState<Partial<Risk> | null>(null); const [gen, setGen] = useState(false); const [genErr, setGenErr] = useState<string | null>(null);
   const list = s.risks.filter((r) => (cat === "All" || r.category === cat) && (kind === "All" || r.kind === kind));
   const cats = Array.from(new Set([...ind.riskCategories, ...s.risks.map((r) => r.category)]));
   const rows = () => list.map((r) => ({ No: r.n, Type: r.kind, Title: r.title, Description: r.description, Category: r.category, P: r.probability, I: r.impact, "Post P": r.postProbability, "Post I": r.postImpact, Owner: r.owner, Status: r.status, Mitigation: r.mitigation, Contingency: r.contingency }));
@@ -23,7 +23,8 @@ export default function RiskRegister() {
       <PageHeader title="Risks & Opportunities · Register" sub={`${s.risks.length} item(s) · ${s.risks.filter((r) => r.status === "Open").length} open · risk categories from the ${ind.name} template`} right={<>
         <Button variant="outline" onClick={() => exportWord("risk-register", "Risk Register", rows())}>Word</Button><Button variant="outline" onClick={() => exportCSV("risk-register", rows())}>Excel</Button>
         <Button variant="outline"><Upload size={13} /> Import edits</Button><Button variant="outline" onClick={() => setEdit({ kind: "Risk", probability: 3, impact: 3, postProbability: 2, postImpact: 2, category: "Commercial" })}><Plus size={13} /> Add entry</Button>
-        <Button variant="primary" onClick={() => { setGen(true); setTimeout(() => { s.generateRisks(); setGen(false); }, 1500); }} disabled={gen}><Sparkles size={13} /> {gen ? "Generating…" : "Generate"}</Button></>} />
+        <Button variant="primary" onClick={async () => { setGen(true); setGenErr(await s.runTenderAnalysis(s.activeTenderId)); setGen(false); }} disabled={gen}><Sparkles size={13} /> {gen ? "Generating…" : "Generate"}</Button></>} />
+      {genErr && <p className="mb-3 rounded border border-app-red/40 bg-app-red/10 px-3 py-2 text-xs text-app-red">{genErr}</p>}
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <Label>Category</Label><Select value={cat} onChange={(e) => setCat(e.target.value)}><option>All</option>{cats.map((c) => <option key={c}>{c}</option>)}</Select>
         <Label>Type</Label><Select value={kind} onChange={(e) => setKind(e.target.value)}><option>All</option><option>Risk</option><option>Opportunity</option></Select>

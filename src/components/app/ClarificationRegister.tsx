@@ -12,7 +12,7 @@ export function ClarificationRegister({ title, filter }: { title: string; filter
   const ind = useIndustry(s.tenders.find((x) => x.id === s.activeTenderId)?.industry || "other");
   const items = useMemo(() => (filter ? s.clarifications.filter(filter) : s.clarifications), [s.clarifications, filter]);
   const [q, setQ] = useState(""); const [cat, setCat] = useState("All"); const [st, setSt] = useState("All");
-  const [add, setAdd] = useState(false); const [imp, setImp] = useState<null | "import" | "ingest">(null); const [gen, setGen] = useState(false);
+  const [add, setAdd] = useState(false); const [imp, setImp] = useState<null | "import" | "ingest">(null); const [gen, setGen] = useState(false); const [genErr, setGenErr] = useState<string | null>(null);
   const [form, setForm] = useState({ ref: "", category: "Technical" as Clarification["category"], title: "", analysis: "" });
   const list = items.filter((c) => (c.title + c.analysis).toLowerCase().includes(q.toLowerCase()) && (cat === "All" || c.category === cat) && (st === "All" || c.status === st));
   const pending = items.filter((c) => c.pending).length;
@@ -22,7 +22,8 @@ export function ClarificationRegister({ title, filter }: { title: string; filter
   return (
     <div className="font-sans">
       <PageHeader title={title} sub={`${items.length} item(s) · ${pending} pending review`} />
-      <RegisterToolbar onWord={() => exportWord("clarifications", title, rows())} onExcel={() => exportCSV("clarifications", rows())} onImport={() => setImp("import")} onIngest={() => setImp("ingest")} onAdd={() => setAdd(true)} onGenerate={() => { setGen(true); setTimeout(() => { s.generateClarifications(); setGen(false); }, 1500); }} generating={gen} />
+      {genErr && <p className="mb-3 rounded border border-app-red/40 bg-app-red/10 px-3 py-2 text-xs text-app-red">{genErr}</p>}
+      <RegisterToolbar onWord={() => exportWord("clarifications", title, rows())} onExcel={() => exportCSV("clarifications", rows())} onImport={() => setImp("import")} onIngest={() => setImp("ingest")} onAdd={() => setAdd(true)} onGenerate={async () => { setGen(true); setGenErr(await s.runTenderAnalysis(s.activeTenderId)); setGen(false); }} generating={gen} />
       <div className="grid gap-5 xl:grid-cols-[1fr_260px]">
         <div>
           <SearchFilter q={q} setQ={setQ}>

@@ -10,10 +10,11 @@ export default function Engineering() {
   const { id } = useParams<{ id: string }>(); const s = useStore();
   const t = s.tenders.find((x) => x.id === id)!; const ind = useIndustry(t.industry);
   const key = (sec: string) => `eng:${sec}`;
-  const [status, setStatus] = useState<Record<string, string>>({});
+  const [status, setStatus] = useState<Record<string, string>>({}); const [err, setErr] = useState<string | null>(null);
   return (
     <div>
-      <PageHeader title="Engineering" sub={`${ind.icon} ${ind.name} template · ${ind.engineeringSections.length} sections. Change the industry on Overview to switch templates.`} right={<Button variant="outline" onClick={() => alert("Connect an LLM to draft engineering inputs from the indexed documents.")}>AI draft inputs</Button>} />
+      <PageHeader title="Engineering" sub={`${ind.icon} ${ind.name} template · ${ind.engineeringSections.length} sections. Change the industry on Overview to switch templates.`} right={<Button variant="primary" disabled={s.analysisBusy} onClick={async () => setErr(await s.draftEngineering(t.id, ind.engineeringSections))}>{s.analysisBusy ? "Drafting…" : "AI draft inputs"}</Button>} />
+      {err && <p className="mb-3 rounded border border-app-red/40 bg-app-red/10 px-3 py-2 text-xs text-app-red">{err}</p>}
       <div className="grid gap-3 md:grid-cols-2">
         {ind.engineeringSections.map((sec) => (
           <Card key={sec} className="p-4">

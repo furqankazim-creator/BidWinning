@@ -62,6 +62,18 @@ export async function POST(req: NextRequest) {
       const body = await req.json(); text = String(body.text || ""); name = body.name || name; mode = body.mode || "tender"; context = body.context || {};
     }
   } catch (e) { return Response.json({ error: `Could not read file: ${e instanceof Error ? e.message : "unknown"}` }, { status: 400 }); }
+  if (mode === "draft") {
+    // Draft prose sections (proposal / engineering) grounded in the workspace context + document text.
+    const body = context as { sections?: string[]; kind?: string; tender?: unknown; facts?: unknown };
+    const sections = (body.sections || []).slice(0, 12);
+    if (!sections.length) return Response.json({ error: "sections[] required" }, { status: 400 });
+    try {
+      const out = await completeJSON<{ sections: { title: string; body: string }[] }>(
+        `You draft ${body.kind || "technical proposal"} sections for a bidder. Write in confident, specific, professional prose grounded ONLY in the supplied tender facts and document text; where a fact is unknown write "[to confirm: …]". 120–220 words per section, plain paragraphs (no headings inside). Return strict JSON.`,
+        `Return JSON {"sections":[{"title":"","body":""}]} for these titles: ${JSON.stringify(sections)}.\n\nTENDER FACTS: ${JSON.stringify(body.tender || {})}\nWORKSPACE FACTS: ${JSON.stringify(body.facts || {})}\n\nDOCUMENT TEXT:\n${text.slice(0, 60_000) || "(none indexed)"}`, 6000);
+      return Response.json({ sections: out.sections || [], provider: providerLabel() });
+    } catch (e) { return Response.json({ error: e instanceof Error ? e.message : "draft failed" }, { status: 502 }); }
+  }
   if (!text.trim()) return Response.json({ error: "No extractable text (scanned PDF? run OCR first)." }, { status: 422 });
   const clipped = text.length > MAX_CHARS ? text.slice(0, MAX_CHARS) + "\n\n[[TRUNCATED — document exceeds analysis window]]" : text;
   try {

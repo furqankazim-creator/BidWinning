@@ -75,10 +75,13 @@ Chat mode talks to specialist agents grounded in the active tender's data. `POST
 ## Build alongside a dev server
 `BUILD_DIR=.next-build npm run build` — avoids clashing with `npm run dev`'s `.next`.
 
+## Verification
+`npm run test:all` runs the 24-check lifecycle test and the 17-check API smoke test. Spec-to-implementation map and known limits: [docs/COVERAGE.md](docs/COVERAGE.md).
+
 ## Not yet built (next steps)
 1. Backend (spec: Laravel API + Postgres) replacing the zustand store; n8n intake for WhatsApp/email/website.
 2. Real auth / SSO and per-organisation tenancy enforcement server-side.
-3. LLM wiring for proposal drafting and the register "Generate" buttons (analysis, extraction and chat are wired).
+3. Native XLSX/DOCX/PPTX/ZIP exports; original file storage; n8n/WhatsApp/email webhook for inquiries; chunking for very large tender volumes.
 4. True DOCX/XLSX/PPTX/ZIP package export (currently CSV / HTML-doc / JSON manifest).
 5. Approval-workflow builder and configurable Go/No-Go weights in the template builder.
 6. Invoices & payments (deferred by product owner).
