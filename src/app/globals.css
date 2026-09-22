@@ -132,3 +132,27 @@ html { transition: background-color .3s ease, color .3s ease; }
 :root[data-theme="dark"] .dark-card { background-color: rgba(255,255,255,0.04) !important; }
 :root[data-theme="dark"] .bg-white\/40, :root[data-theme="dark"] .bg-white\/60, :root[data-theme="dark"] .bg-white\/30 { background-color: rgba(255,255,255,0.04); }
 :root[data-theme="dark"] .bg-white { background-color: #15181d; }
+
+/* ---------- Workspace (app) light theme ---------- */
+:root[data-app-theme="light"] {
+  --app-bg: #f4f3ef;
+  --app-panel: #ffffff;
+  --app-panel-2: #efece5;
+  --app-border: #e1ddd3;
+  --app-border-2: #cbc5b8;
+  --app-text: #1c1b18;
+  --app-muted: #66635b;
+  --app-dim: #979289;
+  --app-accent: #c8772e;
+  --app-green: #1c9a63;
+  --app-yellow: #b8860b;
+  --app-red: #c9423b;
+  --app-purple: #6d4fe0;
+  --app-blue: #2f6fb0;
+}
+:root[data-app-theme="light"] .app-scroll::-webkit-scrollbar-thumb { background: #cbc5b8; }
+/* kanban / pipeline column tints, both themes */
+.col-tint-backlog { background: var(--app-panel); }
+.col-tint-ready { background: #161408; } .col-tint-progress { background: #17110a; } .col-tint-waiting { background: #120e1c; } .col-tint-complete { background: #0b1612; } .col-tint-lost { background: #180d0d; }
+:root[data-app-theme="light"] .col-tint-ready { background: #fbf6e3; } :root[data-app-theme="light"] .col-tint-progress { background: #fcefe1; } :root[data-app-theme="light"] .col-tint-waiting { background: #f0ecfb; } :root[data-app-theme="light"] .col-tint-complete { background: #e7f5ee; } :root[data-app-theme="light"] .col-tint-lost { background: #fbe9e7; }
+.app-heat-empty { background: #1f1f1f; } :root[data-app-theme="light"] .app-heat-empty { background: #e6e2d9; }

@@ -85,7 +85,7 @@ export function ContributorHeatmap({ rows, noun = "items" }: { rows: { name: str
             return (
               <div key={r.name} className="mb-1.5 flex items-center">
                 <div className="flex w-[150px] items-center gap-2 text-xs text-app-text"><span className="flex h-5 w-5 items-center justify-center rounded-full text-[9px] font-semibold text-white" style={{ background: c.color }}>{c.initials}</span>{r.name}</div>
-                <div className="flex gap-[5px]">{days.map((d) => { const hit = r.dates.some((x) => x.slice(0, 10) === key(d)); return <span key={key(d)} className="h-[14px] w-[18px] rounded-[2px]" style={{ background: hit ? c.color : "#1f1f1f" }} />; })}</div>
+                <div className="flex gap-[5px]">{days.map((d) => { const hit = r.dates.some((x) => x.slice(0, 10) === key(d)); return <span key={key(d)} className={cn("h-[14px] w-[18px] rounded-[2px]", !hit && "app-heat-empty")} style={hit ? { background: c.color } : undefined} />; })}</div>
                 <span className="ml-3 text-[11px] text-app-dim">{r.dates.length} {noun}</span>
               </div>
             );

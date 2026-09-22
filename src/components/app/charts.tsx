@@ -51,13 +51,13 @@ export function ColumnChart({ title, data, fmt = (n: number) => n.toLocaleString
       {data.length === 0 ? <p className="text-xs text-app-dim">No data.</p> : (
         <div className="relative">
           <svg viewBox={`0 0 ${W} ${H}`} className="w-full overflow-visible">
-            {ticks.map((t) => <line key={t} x1={padL} x2={W - padL} y1={padT + (1 - t) * (H - padT - padB)} y2={padT + (1 - t) * (H - padT - padB)} stroke="#262626" strokeDasharray={t === 0 ? undefined : "2 4"} />)}
+            {ticks.map((t) => <line key={t} x1={padL} x2={W - padL} y1={padT + (1 - t) * (H - padT - padB)} y2={padT + (1 - t) * (H - padT - padB)} style={{ stroke: "var(--app-border)" }} strokeDasharray={t === 0 ? undefined : "2 4"} />)}
             {data.map((d, i) => { const h = (d.value / max) * (H - padT - padB); const x = padL + i * slot + (slot - bw) / 2; const y = H - padB - h; const c = accent || (colorByIndex ? seriesFor(i) : series[0]); return (
               <g key={d.label} onMouseEnter={() => setHover(i)} onMouseLeave={() => setHover(null)}>
                 <rect x={padL + i * slot} y={padT} width={slot} height={H - padT - padB} fill="transparent" />
                 <rect x={x} width={bw} rx={4} y={mounted ? y : H - padB} height={mounted ? Math.max(h, d.value ? 4 : 0) : 0} fill={c} opacity={hover === null || hover === i ? 1 : 0.45} style={{ transition: `y .7s cubic-bezier(.2,.8,.2,1) ${i * 60}ms, height .7s cubic-bezier(.2,.8,.2,1) ${i * 60}ms, opacity .2s` }} />
-                <text x={x + bw / 2} y={H - padB + 14} textAnchor="middle" fontSize="9" fill="#8a877f" fontFamily="var(--font-mono)">{d.label.length > 9 ? d.label.slice(0, 8) + "…" : d.label}</text>
-                {(hover === i || data.length <= 6) && <text x={x + bw / 2} y={y - 5} textAnchor="middle" fontSize="9.5" fill="#ece7dd" fontFamily="var(--font-mono)" style={{ opacity: mounted ? 1 : 0, transition: "opacity .4s .6s" }}>{fmt(d.value)}</text>}
+                <text x={x + bw / 2} y={H - padB + 14} textAnchor="middle" fontSize="9" style={{ fill: "var(--app-muted)" }} fontFamily="var(--font-mono)">{d.label.length > 9 ? d.label.slice(0, 8) + "…" : d.label}</text>
+                {(hover === i || data.length <= 6) && <text x={x + bw / 2} y={y - 5} textAnchor="middle" fontSize="9.5" fontFamily="var(--font-mono)" style={{ fill: "var(--app-text)", opacity: mounted ? 1 : 0, transition: "opacity .4s .6s" }}>{fmt(d.value)}</text>}
               </g>
             ); })}
           </svg>
@@ -76,10 +76,10 @@ export function Donut({ title, data, center, sub }: { title: string; data: Datum
       <Label className="mb-3">{title}</Label>
       <div className="flex items-center gap-4">
         <svg viewBox="0 0 100 100" className="h-32 w-32 shrink-0">
-          <circle cx="50" cy="50" r={r} fill="none" stroke="#262626" strokeWidth="11" />
+          <circle cx="50" cy="50" r={r} fill="none" style={{ stroke: "var(--app-border)" }} strokeWidth="11" />
           {data.map((d, i) => { const len = (d.value / total) * c - 1.5; const off = -acc; acc += (d.value / total) * c; return <circle key={d.label} cx="50" cy="50" r={r} fill="none" stroke={seriesFor(i)} strokeWidth={hover === i ? 13 : 11} strokeLinecap="round" strokeDasharray={mounted ? `${Math.max(len, 0)} ${c}` : `0 ${c}`} strokeDashoffset={off} transform="rotate(-90 50 50)" opacity={hover === null || hover === i ? 1 : 0.4} style={{ transition: `stroke-dasharray .9s cubic-bezier(.2,.8,.2,1) ${i * 80}ms, opacity .2s, stroke-width .2s` }} onMouseEnter={() => setHover(i)} onMouseLeave={() => setHover(null)} />; })}
-          <text x="50" y="50" textAnchor="middle" fontSize="15" fill="#ece7dd" fontFamily="var(--font-display)">{hover !== null ? data[hover].value : center ?? total}</text>
-          <text x="50" y="62" textAnchor="middle" fontSize="6.5" fill="#8a877f" fontFamily="var(--font-mono)">{hover !== null ? data[hover].label.slice(0, 16) : sub ?? ""}</text>
+          <text x="50" y="50" textAnchor="middle" fontSize="15" style={{ fill: "var(--app-text)" }} fontFamily="var(--font-display)">{hover !== null ? data[hover].value : center ?? total}</text>
+          <text x="50" y="62" textAnchor="middle" fontSize="6.5" style={{ fill: "var(--app-muted)" }} fontFamily="var(--font-mono)">{hover !== null ? data[hover].label.slice(0, 16) : sub ?? ""}</text>
         </svg>
         <div className="space-y-1.5 text-[11px]">{data.map((d, i) => <button key={d.label} onMouseEnter={() => setHover(i)} onMouseLeave={() => setHover(null)} className={cn("flex w-full items-center gap-2 text-left transition-opacity", hover !== null && hover !== i && "opacity-50")}><span className="h-2.5 w-2.5 rounded-sm" style={{ background: seriesFor(i) }} /><span className="text-app-text">{d.label}</span><span className="ml-auto pl-3 tabular-nums text-app-muted">{d.value} <span className="text-app-dim">· {Math.round((d.value / total) * 100)}%</span></span></button>)}</div>
       </div>
@@ -103,11 +103,11 @@ export function AreaChart({ title, data, fmt = (n: number) => n.toLocaleString()
         <div ref={ref} className="relative" onMouseMove={onMove} onMouseLeave={() => setHover(null)}>
           <svg viewBox={`0 0 ${W} ${H}`} className="w-full overflow-visible">
             <defs><linearGradient id="areaFill" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stopColor={color} stopOpacity="0.35" /><stop offset="100%" stopColor={color} stopOpacity="0.02" /></linearGradient></defs>
-            {[0, 0.5, 1].map((t) => <line key={t} x1={padL} x2={W - padR} y1={padT + (1 - t) * (H - padT - padB)} y2={padT + (1 - t) * (H - padT - padB)} stroke="#262626" strokeDasharray={t === 0 ? undefined : "2 4"} />)}
+            {[0, 0.5, 1].map((t) => <line key={t} x1={padL} x2={W - padR} y1={padT + (1 - t) * (H - padT - padB)} y2={padT + (1 - t) * (H - padT - padB)} style={{ stroke: "var(--app-border)" }} strokeDasharray={t === 0 ? undefined : "2 4"} />)}
             <path d={area} fill="url(#areaFill)" style={{ opacity: mounted ? 1 : 0, transition: "opacity 1s .3s" }} />
             <path d={path} fill="none" stroke={color} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" pathLength={1} strokeDasharray={1} strokeDashoffset={mounted ? 0 : 1} style={{ transition: "stroke-dashoffset 1.1s cubic-bezier(.2,.8,.2,1)" }} />
-            {hover !== null && <><line x1={pts[hover].x} x2={pts[hover].x} y1={padT} y2={H - padB} stroke="#3a3a3a" /><circle cx={pts[hover].x} cy={pts[hover].y} r="4.5" fill={color} stroke="#141414" strokeWidth="2" /></>}
-            {data.map((d, i) => (i % Math.ceil(n / 8) === 0 || i === n - 1) && <text key={i} x={pts[i].x} y={H - 6} textAnchor={i === 0 ? "start" : i === n - 1 ? "end" : "middle"} fontSize="9" fill="#8a877f" fontFamily="var(--font-mono)">{d.label}</text>)}
+            {hover !== null && <><line x1={pts[hover].x} x2={pts[hover].x} y1={padT} y2={H - padB} style={{ stroke: "var(--app-border-2)" }} /><circle cx={pts[hover].x} cy={pts[hover].y} r="4.5" fill={color} style={{ stroke: "var(--app-panel)" }} strokeWidth="2" /></>}
+            {data.map((d, i) => (i % Math.ceil(n / 8) === 0 || i === n - 1) && <text key={i} x={pts[i].x} y={H - 6} textAnchor={i === 0 ? "start" : i === n - 1 ? "end" : "middle"} fontSize="9" style={{ fill: "var(--app-muted)" }} fontFamily="var(--font-mono)">{d.label}</text>)}
           </svg>
           {hover !== null && <Tooltip x={(pts[hover].x / W) * (ref.current?.clientWidth || W)} y={(pts[hover].y / H) * (ref.current?.clientHeight || H)}><span className="text-app-muted">{data[hover].label}</span> · <span className="font-semibold">{fmt(data[hover].value)}</span></Tooltip>}
         </div>

@@ -8,6 +8,7 @@ import { cn } from "@/lib/cn";
 import { brand } from "@/config/brand";
 import { apiEnabled, authApi, setSession } from "@/lib/api";
 import { useRouter } from "next/navigation";
+import { AppThemeToggle } from "@/components/marketing/Theme";
 
 const tabs = [
   { id: "profile", label: "Profile", icon: User }, { id: "preferences", label: "Preferences", icon: SlidersHorizontal }, { id: "skills", label: "Skills", icon: Sparkles },
@@ -55,6 +56,7 @@ export function SettingsModal() {
               <p className="mb-6 mt-1 text-xs text-app-muted">Defaults for this workspace.</p>
               <div className="max-w-md space-y-4">
                 <Field label="Default model"><Select className="w-full" value={profile.model} onChange={(e) => updateProfile({ model: e.target.value as "Lite" | "Max" })}><option>Lite</option><option>Max</option></Select></Field>
+                <div><Label className="mb-1">Workspace appearance</Label><AppThemeToggle className="flex items-center gap-2 rounded-sm border border-app-border-2 px-3 py-1.5 font-sans text-[13px] text-app-text" /></div>
                 <Field label="Currency"><Select className="w-full" defaultValue="CAD"><option>CAD</option><option>USD</option><option>EUR</option><option>NOK</option></Select></Field>
                 <div className="pt-4"><Button variant="danger" onClick={() => { if (confirm("Reset all demo data to seed state?")) reset(); }}>Reset demo data</Button></div>
               </div>

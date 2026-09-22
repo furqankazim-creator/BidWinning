@@ -28,9 +28,9 @@ export default function CashflowPage() {
         <Card className="p-4"><Label>Duration</Label><p className="mt-1 font-display text-2xl text-app-text">{n} months</p></Card>
       </div>
       <Card className="p-4"><svg viewBox={`0 0 ${W} ${H}`} className="w-full">
-        <line x1={pad} x2={W - pad} y1={y(0)} y2={y(0)} stroke="#333" />
+        <line x1={pad} x2={W - pad} y1={y(0)} y2={y(0)} style={{ stroke: "var(--app-border-2)" }} />
         <path d={path("co")} fill="none" stroke="#e5534b" strokeWidth="2" /><path d={path("ci")} fill="none" stroke="#3ec48a" strokeWidth="2" /><path d={path("net")} fill="none" stroke="#c8772e" strokeWidth="2" strokeDasharray="4 3" />
-        {pts.filter((_, i) => i % Math.ceil(n / 8) === 0).map((p, i) => <text key={i} x={x(pts.indexOf(p))} y={H - 8} fontSize="10" fill="#8a877f" textAnchor="middle" fontFamily="monospace">{p.label}</text>)}
+        {pts.filter((_, i) => i % Math.ceil(n / 8) === 0).map((p, i) => <text key={i} x={x(pts.indexOf(p))} y={H - 8} fontSize="10" style={{ fill: "var(--app-muted)" }} textAnchor="middle" fontFamily="monospace">{p.label}</text>)}
       </svg><div className="mt-2 flex gap-4 text-xs text-app-muted"><span className="text-app-green">■ Cumulative income</span><span className="text-app-red">■ Cumulative cost</span><span className="text-app-accent">┄ Net</span></div></Card>
     </div>
   );

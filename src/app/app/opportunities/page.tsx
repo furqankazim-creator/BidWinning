@@ -27,7 +27,7 @@ export default function Opportunities() {
       {view === "board" ? (
         <div className="app-scroll flex gap-3 overflow-x-auto pb-2">
           {stages.map((st) => { const items = list.filter((o) => o.stage === st); return (
-            <div key={st} onDragOver={(e) => e.preventDefault()} onDrop={() => { if (drag) move(drag, st); setDrag(null); }} className={cn("w-64 shrink-0 rounded border border-app-border p-2.5", st === "Won" ? "bg-[#0b1612]" : st === "Lost" ? "bg-[#180d0d]" : "bg-app-panel")}>
+            <div key={st} onDragOver={(e) => e.preventDefault()} onDrop={() => { if (drag) move(drag, st); setDrag(null); }} className={cn("w-64 shrink-0 rounded border border-app-border p-2.5", st === "Won" ? "col-tint-complete" : st === "Lost" ? "col-tint-lost" : "bg-app-panel")}>
               <div className="mb-2 flex items-center justify-between text-xs"><span className={cn(st === "Won" ? "text-app-green" : st === "Lost" ? "text-app-red" : "text-app-text")}>{st}</span><span className="font-mono text-app-muted">{items.length} · {money(items.reduce((a, o) => a + o.value, 0))}</span></div>
               {items.map((o) => (
                 <div key={o.id} draggable onDragStart={() => setDrag(o.id)} onClick={() => setEdit(o)} className="mb-2 cursor-grab rounded border border-app-border-2 bg-app-bg p-2.5 hover:border-app-muted">

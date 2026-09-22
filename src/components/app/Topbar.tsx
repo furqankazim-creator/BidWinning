@@ -5,6 +5,7 @@ import { useRouter, usePathname } from "next/navigation";
 import { ChevronLeft, ChevronRight, Clock, Search, Bell, Filter, Cloud, CloudOff, LogOut } from "lucide-react";
 import { apiEnabled, setSession } from "@/lib/api";
 import { syncStatus } from "@/store/sync";
+import { AppThemeToggle } from "@/components/marketing/Theme";
 import { useStore, daysLeft } from "@/store/useStore";
 import { allPagesFor } from "./nav";
 import { useUI } from "./ui-state";
@@ -55,6 +56,7 @@ export function Topbar() {
             </div>
           )}
         </div>
+        <AppThemeToggle className="flex items-center gap-1 rounded border border-app-border px-1.5 py-1.5 text-xs text-app-muted hover:text-app-text" />
         <button onClick={() => setPalette(true)} className="rounded border border-app-border p-1.5 text-app-muted hover:text-app-text"><Search size={13} /></button>
         <span title={apiEnabled() ? (syncStatus.lastError ? `Sync error: ${syncStatus.lastError}` : syncStatus.pending ? "Saving…" : "Saved to server") : "Demo mode — data stored in this browser only"} className={cn("flex items-center gap-1 text-[11px]", !apiEnabled() ? "text-app-dim" : syncStatus.lastError ? "text-app-red" : syncStatus.pending ? "text-app-yellow" : "text-app-green")}>{apiEnabled() ? <Cloud size={13} /> : <CloudOff size={13} />}<span className="hidden lg:inline">{!apiEnabled() ? "local" : syncStatus.lastError ? "error" : syncStatus.pending ? "saving" : "saved"}</span></span>
         <button onClick={() => { setSession(null); router.push("/sign-in"); }} title="Sign out" className="rounded border border-app-border p-1.5 text-app-muted hover:text-app-text"><LogOut size={13} /></button>

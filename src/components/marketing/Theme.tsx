@@ -18,7 +18,7 @@ function apply(mode: Mode, accent: string) {
 }
 
 /** Inline boot script — runs before paint to avoid a theme flash. */
-export const themeBootScript = `try{var q=new URLSearchParams(location.search);if(q.get("theme"))localStorage.setItem("vq.mode",q.get("theme"));if(q.get("accent"))localStorage.setItem("vq.accent",q.get("accent"));var m=localStorage.getItem("vq.mode")||"light",a=localStorage.getItem("vq.accent")||"orange",d=m==="dark"||(m==="system"&&matchMedia("(prefers-color-scheme: dark)").matches);document.documentElement.setAttribute("data-theme",d?"dark":"light");document.documentElement.setAttribute("data-accent",a)}catch(e){}`;
+export const themeBootScript = `try{var q=new URLSearchParams(location.search);if(q.get("theme"))localStorage.setItem("vq.mode",q.get("theme"));if(q.get("accent"))localStorage.setItem("vq.accent",q.get("accent"));var m=localStorage.getItem("vq.mode")||"light",a=localStorage.getItem("vq.accent")||"orange",d=m==="dark"||(m==="system"&&matchMedia("(prefers-color-scheme: dark)").matches);document.documentElement.setAttribute("data-theme",d?"dark":"light");document.documentElement.setAttribute("data-accent",a);if(q.get("app"))localStorage.setItem("vq.appMode",q.get("app"));if(q.get("demo")==="1"&&!localStorage.getItem("vq.session"))localStorage.setItem("vq.session",JSON.stringify({token:"",user:{id:"demo",name:"Demo User",email:"demo@vendoriq.app",role:"Organization Admin",orgId:"demo"},org:{id:"demo",name:"Demo organisation",plan:"Team",currency:"USD",industries:[],seeded:true}}));var w=localStorage.getItem("vq.appMode")||"dark";document.documentElement.setAttribute("data-app-theme",w)}catch(e){}`;
 
 export function ThemeControls({ compact }: { compact?: boolean }) {
   const [mode, setMode] = useState<Mode>("light"); const [accent, setAccent] = useState("orange"); const [open, setOpen] = useState(false); const [loaded, setLoaded] = useState(false);
@@ -51,4 +51,13 @@ export function RevealObserver() {
     return () => { io.disconnect(); mo.disconnect(); };
   }, [pathname]);
   return null;
+}
+
+
+/** Workspace (/app) light/dark toggle — independent of the landing theme. */
+export function AppThemeToggle({ className }: { className?: string }) {
+  const [mode, setMode] = useState<"dark" | "light">("dark");
+  useEffect(() => { try { setMode((localStorage.getItem("vq.appMode") as "dark" | "light") || "dark"); } catch {} }, []);
+  const toggle = () => { const next = mode === "dark" ? "light" : "dark"; setMode(next); document.documentElement.setAttribute("data-app-theme", next); try { localStorage.setItem("vq.appMode", next); } catch {} };
+  return <button onClick={toggle} title={`Switch to ${mode === "dark" ? "light" : "dark"} mode`} className={className}>{mode === "dark" ? <Sun size={13} /> : <Moon size={13} />}<span className="hidden xl:inline">{mode === "dark" ? "Light" : "Dark"}</span></button>;
 }

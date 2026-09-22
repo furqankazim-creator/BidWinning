@@ -47,7 +47,7 @@ npm run build
 - **Templates** also carry custom tender fields (shown on Overview) and clarification question templates.
 
 ## Landing theme & animation
-Light / dark / system toggle plus five accent themes (Ember, Ocean, Emerald, Violet, Rose) via the nav controls, persisted in `localStorage` and applied pre-paint by an inline boot script (`src/components/marketing/Theme.tsx`). URL params `?theme=dark&accent=blue` preset them for demos. Scroll-reveal (`.reveal`), floating hero cards, gradient headline, lifecycle marquee; all honour `prefers-reduced-motion`.
+Light / dark / system toggle plus five accent themes (Ember, Ocean, Emerald, Violet, Rose) via the nav controls, persisted in `localStorage` and applied pre-paint by an inline boot script (`src/components/marketing/Theme.tsx`). URL params `?theme=dark&accent=blue` preset them for demos. The workspace (`/app`) has its own **light/dark toggle** in the top bar and in Settings → Preferences (persisted as `vq.appMode`; `?app=light` presets it, `?demo=1` opens the sample workspace in demo mode). Scroll-reveal (`.reveal`), floating hero cards, gradient headline, lifecycle marquee; all honour `prefers-reduced-motion`.
 
 ## Charts
 `src/components/app/charts.tsx`: animated horizontal bars, columns, donut, area/line with crosshair tooltip, KPI count-up. Categorical palette is fixed-order and validated (dataviz six checks) against the dark surface.

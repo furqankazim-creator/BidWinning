@@ -9,11 +9,11 @@ import { agents } from "@/store/seed";
 import { cn } from "@/lib/cn";
 
 const columns: { id: ActionStatus; label: string; color: string; bg: string }[] = [
-  { id: "backlog", label: "Backlog", color: "text-app-text", bg: "bg-app-panel" },
-  { id: "ready", label: "Ready", color: "text-app-yellow", bg: "bg-[#161408]" },
-  { id: "in_progress", label: "In progress", color: "text-app-accent", bg: "bg-[#17110a]" },
-  { id: "waiting", label: "Waiting for review", color: "text-app-purple", bg: "bg-[#120e1c]" },
-  { id: "complete", label: "Complete", color: "text-app-green", bg: "bg-[#0b1612]" },
+  { id: "backlog", label: "Backlog", color: "text-app-text", bg: "col-tint-backlog" },
+  { id: "ready", label: "Ready", color: "text-app-yellow", bg: "col-tint-ready" },
+  { id: "in_progress", label: "In progress", color: "text-app-accent", bg: "col-tint-progress" },
+  { id: "waiting", label: "Waiting for review", color: "text-app-purple", bg: "col-tint-waiting" },
+  { id: "complete", label: "Complete", color: "text-app-green", bg: "col-tint-complete" },
 ];
 
 const quickActions = [

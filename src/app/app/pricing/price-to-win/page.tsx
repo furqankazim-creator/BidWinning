@@ -23,8 +23,8 @@ export default function PriceToWin() {
       </div>
       <Card className="mt-4 p-4"><svg viewBox={`0 0 ${W} ${H}`} className="w-full">
         <rect x={x(market.low)} width={x(market.high) - x(market.low)} y={40} height={20} fill="#5b93c4" opacity="0.25" /><text x={x(market.low)} y={34} fontSize="10" fill="#5b93c4" fontFamily="monospace">market range</text>
-        {est.map((e) => <g key={e.id}><line x1={x(e.est)} x2={x(e.est)} y1={40} y2={60} stroke="#8a877f" /><text x={x(e.est)} y={78} fontSize="9" fill="#8a877f" textAnchor="middle" fontFamily="monospace">{e.name}</text></g>)}
-        <line x1={x(t.price)} x2={x(t.price)} y1={30} y2={70} stroke="#ece7dd" strokeWidth="2" /><text x={x(t.price)} y={96} fontSize="10" fill="#ece7dd" textAnchor="middle" fontFamily="monospace">you</text>
+        {est.map((e) => <g key={e.id}><line x1={x(e.est)} x2={x(e.est)} y1={40} y2={60} style={{ stroke: "var(--app-muted)" }} /><text x={x(e.est)} y={78} fontSize="9" style={{ fill: "var(--app-muted)" }} textAnchor="middle" fontFamily="monospace">{e.name}</text></g>)}
+        <line x1={x(t.price)} x2={x(t.price)} y1={30} y2={70} style={{ stroke: "var(--app-text)" }} strokeWidth="2" /><text x={x(t.price)} y={96} fontSize="10" style={{ fill: "var(--app-text)" }} textAnchor="middle" fontFamily="monospace">you</text>
         <line x1={x(ptw)} x2={x(ptw)} y1={30} y2={70} stroke="#c8772e" strokeWidth="2" strokeDasharray="4 3" /><text x={x(ptw)} y={112} fontSize="10" fill="#c8772e" textAnchor="middle" fontFamily="monospace">PTW</text>
       </svg></Card>
       <Card className="mt-4 grid gap-3 p-4 md:grid-cols-3">
