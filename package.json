@@ -9,7 +9,7 @@
     "lint": "next lint",
     "api": "npm --prefix server run dev:memory",
     "api:test": "npm --prefix server test",
-    "dev:full": "concurrently -k \"npm run api\" \"NEXT_PUBLIC_API_URL=http://localhost:4000 next dev\"",
+    "dev:full": "concurrently -k \"npm run api\" \"NEXT_PUBLIC_API_URL=http://localhost:4005 next dev\"",
     "test:lifecycle": "tsx --tsconfig tsconfig.json tests/lifecycle.mts",
     "test:all": "npm run test:lifecycle && npm run api:test"
   },

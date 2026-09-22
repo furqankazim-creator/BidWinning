@@ -24,5 +24,5 @@ export async function createApp() {
 }
 
 if (process.argv[1]?.endsWith("index.ts") || process.argv[1]?.endsWith("index.js")) {
-  connectDb().then(async () => { const app = await createApp(); const port = Number(process.env.PORT) || 4000; app.listen(port, () => console.log(`[api] VendorIQ API listening on :${port}`)); }).catch((e) => { console.error(e); process.exit(1); });
+  connectDb().then(async () => { const app = await createApp(); const port = Number(process.env.PORT) || 4005; app.listen(port, () => console.log(`[api] VendorIQ API listening on :${port}`)); }).catch((e) => { console.error(e); process.exit(1); });
 }
