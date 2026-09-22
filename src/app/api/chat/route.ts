@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest } from "next/server";
+import { groqFetch, groqKeys, groqModel } from "@/lib/server/groq";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -17,7 +18,7 @@ const personas: Record<string, string> = {
 export async function POST(req: NextRequest) {
   const { agent, messages, context } = (await req.json()) as { agent: string; messages: { role: "user" | "assistant"; text: string }[]; context: unknown };
   const hasAnthropic = !!(process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_AUTH_TOKEN);
-  const hasGroq = !!process.env.GROQ_API_KEY;
+  const hasGroq = groqKeys().length > 0;
   if (!hasAnthropic && !hasGroq) {
     return new Response(JSON.stringify({ error: "no_credentials" }), { status: 503, headers: { "content-type": "application/json" } });
   }
@@ -39,15 +40,11 @@ Rules you must follow:
 
   // Fallback provider: Groq (OpenAI-compatible chat completions, SSE). Used only when no Anthropic credential is configured.
   if (!hasAnthropic) {
-    const model = process.env.GROQ_MODEL || "openai/gpt-oss-120b";
-    const upstream = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-      method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${process.env.GROQ_API_KEY}` },
-      body: JSON.stringify({ model, stream: true, max_tokens: 2048, temperature: 0.3, messages: [{ role: "system", content: system.map((b) => b.text).join("\n\n") }, ...history.map((m) => ({ role: m.role, content: String(m.content) }))] }),
-    });
-    if (!upstream.ok || !upstream.body) {
-      const detail = await upstream.text().catch(() => "");
-      return new Response(`[Groq error ${upstream.status}: ${detail.slice(0, 200)}]`, { status: 200, headers: { "content-type": "text/plain; charset=utf-8", "x-provider": "groq" } });
-    }
+    const model = groqModel();
+    let upstream: Response; let keyIndex = 0;
+    try { ({ res: upstream, keyIndex } = await groqFetch({ model, stream: true, max_tokens: 2048, temperature: 0.3, messages: [{ role: "system", content: system.map((b) => b.text).join("\n\n") }, ...history.map((m) => ({ role: m.role, content: String(m.content) }))] })); }
+    catch (e) { return new Response(`[${e instanceof Error ? e.message : "Groq error"}]`, { status: 200, headers: { "content-type": "text/plain; charset=utf-8", "x-provider": "groq" } }); }
+    if (!upstream.body) return new Response("[Groq returned no body]", { status: 200, headers: { "content-type": "text/plain; charset=utf-8", "x-provider": "groq" } });
     const body = upstream.body;
     const stream = new ReadableStream<Uint8Array>({
       async start(controller) {
@@ -69,7 +66,7 @@ Rules you must follow:
         controller.close();
       },
     });
-    return new Response(stream, { headers: { "content-type": "text/plain; charset=utf-8", "cache-control": "no-store", "x-provider": `groq:${model}` } });
+    return new Response(stream, { headers: { "content-type": "text/plain; charset=utf-8", "cache-control": "no-store", "x-provider": `groq:${model}#key${keyIndex}` } });
   }
 
   const client = new Anthropic();
