@@ -104,15 +104,15 @@ interface State {
 }
 
 const initial = () => ({
-  tenders: [...seed.tenders, seed3.tender4, seed4.tender], activeTenderId: "t5", actions: [...seed.actions, ...seed3.actions, ...seed4.actions], projects: seed3.projects, vendors: seed.vendors, docs: [...seed.docs, ...seed3.docs, seed4.doc],
-  clarifications: [...seed.clarifications, ...seed3.clarifications, ...seed4.clarifications], clauses: [...seed.clauses, ...seed3.clauses, ...seed4.clauses], qualifications: [...seed.qualifications, ...seed3.qualifications, ...seed4.qualifications], risks: [...seed.risks, ...seed3.risks, ...seed4.risks], deliverables: [...seed.deliverables, ...seed3.deliverables, ...seed4.deliverables],
+  tenders: [...seed.tenders, seed3.tender4, seed4.tender], activeTenderId: "t5", actions: [...seed.actions, ...seed3.actions, ...seed4.actions, ...seed4.meetingActions], projects: seed3.projects, vendors: seed.vendors, docs: [...seed.docs, ...seed3.docs, seed4.doc, seed4.meetingDoc],
+  clarifications: [...seed.clarifications, ...seed3.clarifications, ...seed4.clarifications, ...seed4.meetingClarifications], clauses: [...seed.clauses, ...seed3.clauses, ...seed4.clauses], qualifications: [...seed.qualifications, ...seed3.qualifications, ...seed4.qualifications], risks: [...seed.risks, ...seed3.risks, ...seed4.risks], deliverables: [...seed.deliverables, ...seed3.deliverables, ...seed4.deliverables, ...seed4.meetingDeliverables],
   costLines: [...seed.costLines, ...seed3.costLines, ...seed4.costLines], milestones: [...seed.milestones, ...seed3.milestones], competitors: [...seed.competitors, ...seed3.competitors], lessons: [...seed3.lessons, ...seed.lessons], procPackages: [...seed.procPackages, ...seed3.procPackages, ...seed4.procPackages], quotations: [...seed.quotations, ...seed3.quotations], submissions: seed3.submissions, chat: [] as T.ChatMsg[], chatBusy: false, analysisBusy: false,
   profile: { name: "Jordan Reyes", email: "j.reyes@northstar.example", model: "Lite" as const }, margin: 12, lastExtraction: new Date("2026-09-16T14:33:18").toISOString(),
   industryFilter: "all", org: seed2.org, users: seed2.users, currentUser: "Jordan Reyes",
-  companies: [...seed2.companies, seed4.company], contacts: [...seed2.contacts, seed4.contact], opportunities: [...seed2.opportunities, seed4.opportunity], activities: [...seed4.activities, ...seed2.activities],
-  requirements: [...seed2.requirements, ...seed4.requirements], complianceItems: [...seed2.complianceItems, ...seed4.complianceItems], capabilities: seed2.capabilities, aiSummaries: [...seed2.aiSummaries, seed4.aiSummary],
+  companies: [...seed2.companies, seed4.company], contacts: [...seed2.contacts, seed4.contact], opportunities: [...seed2.opportunities, seed4.opportunity], activities: [...seed4.meetingActivities, ...seed4.activities, ...seed2.activities],
+  requirements: [...seed2.requirements, ...seed4.requirements, ...seed4.meetingRequirements], complianceItems: [...seed2.complianceItems, ...seed4.complianceItems, ...seed4.meetingCompliance], capabilities: seed2.capabilities, aiSummaries: [...seed2.aiSummaries, seed4.aiSummary],
   reviews: [...seed2.reviews, ...seed3.reviews], approvals: [...seed2.approvals, ...seed3.approvals], priceVersions: [...seed2.priceVersions, ...seed3.priceVersions], proposalSections: [...seed2.proposalSections, ...seed3.proposalSections], bidResults: seed3.bidResults,
-  inquiries: seed2.inquiries, contracts: seed3.contracts, auditLog: seed2.auditLog, aiLog: [...seed4.aiLog, ...seed2.aiLog], notifications: [...seed4.notifications, ...seed2.notifications], customIndustries: [],
+  inquiries: seed2.inquiries, contracts: seed3.contracts, auditLog: [...seed4.meetingAudit, ...seed2.auditLog], aiLog: [...seed4.aiLog, ...seed2.aiLog], notifications: [seed4.meetingNotification, ...seed4.notifications, ...seed2.notifications], customIndustries: [],
 });
 
 const patchIn = <X extends { id: string }>(arr: X[], id: string, patch: Partial<X>) => arr.map((x) => (x.id === id ? { ...x, ...patch } : x));
@@ -415,7 +415,7 @@ export const useStore = create<State>()(
       deleteCustomIndustry: (id) => set((s) => ({ customIndustries: s.customIndustries.filter((c) => c.id !== id) })),
       reset: () => set(initial()),
     }),
-    { name: "vendoriq-tenderos", storage: createJSONStorage(() => ({ getItem: (k) => localStorage.getItem(k), setItem: (k, v) => { try { localStorage.setItem(k, v); } catch { console.warn("VendorIQ: local storage quota exceeded — state kept in memory only for this session."); } }, removeItem: (k) => localStorage.removeItem(k) })), version: 4, migrate: () => initial() as unknown as State, partialize: (s) => ({ ...s, chatBusy: false, analysisBusy: false }) as State }
+    { name: "vendoriq-tenderos", storage: createJSONStorage(() => ({ getItem: (k) => localStorage.getItem(k), setItem: (k, v) => { try { localStorage.setItem(k, v); } catch { console.warn("VendorIQ: local storage quota exceeded — state kept in memory only for this session."); } }, removeItem: (k) => localStorage.removeItem(k) })), version: 5, migrate: () => initial() as unknown as State, partialize: (s) => ({ ...s, chatBusy: false, analysisBusy: false }) as State }
   )
 );
 
