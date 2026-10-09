@@ -28,6 +28,7 @@ interface State {
 
   audit: (action: string, entity: string, entityId: string, detail: string) => void;
   logAI: (e: Omit<T.AILogEntry, "id" | "at" | "user">) => void;
+  updateAILogStatus: (id: string, status: "Accepted" | "Rejected", note?: string) => void;
   notify: (kind: string, text: string, href: string) => void; markRead: (id?: string) => void;
   addUser: (u: Omit<T.User, "id">) => void; updateUser: (id: string, p: Partial<T.User>) => void;
   addCompany: (c: Partial<T.Company> & { name: string }) => string; updateCompany: (id: string, p: Partial<T.Company>) => void; deleteCompany: (id: string) => void;
@@ -302,6 +303,7 @@ export const useStore = create<State>()(
       setIndustryFilter: (industryFilter) => set({ industryFilter }),
       audit: (action, entity, entityId, detail) => { set((s) => ({ auditLog: [{ id: uid(), at: new Date().toISOString(), user: s.currentUser, action, entity, entityId, detail }, ...s.auditLog] })); pushAudit({ action, entity, entityId, detail }); },
       logAI: (e) => set((s) => ({ aiLog: [{ ...e, id: uid(), at: new Date().toISOString(), user: s.currentUser }, ...s.aiLog] })),
+      updateAILogStatus: (id, status, note) => set((s) => ({ aiLog: s.aiLog.map(a => a.id === id ? { ...a, reviewStatus: status, approver: s.currentUser, reviewNote: note } : a) })),
       notify: (kind, text, href) => set((s) => ({ notifications: [{ id: uid(), at: new Date().toISOString(), kind, text, href, read: false }, ...s.notifications] })),
       markRead: (id) => set((s) => ({ notifications: s.notifications.map((n) => (!id || n.id === id ? { ...n, read: true } : n)) })),
       addUser: (u) => set((s) => ({ users: [...s.users, { ...u, id: uid() }] })),

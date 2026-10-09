@@ -7,6 +7,7 @@ import { connectDb } from "./db.js";
 import { auth } from "./routes/auth.js";
 import { org } from "./routes/org.js";
 import { data } from "./routes/data.js";
+import { standards } from "./routes/standards.js";
 
 export async function createApp() {
   const app = express();
@@ -19,10 +20,11 @@ export async function createApp() {
   app.use("/api/auth", auth);
   app.use("/api/org", org);
   app.use("/api/data", data);
+  app.use("/api/standards", standards);
   app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => { console.error(err); res.status(500).json({ error: err.message || "server error" }); });
   return app;
 }
 
 if (process.argv[1]?.endsWith("index.ts") || process.argv[1]?.endsWith("index.js")) {
-  connectDb().then(async () => { const app = await createApp(); const port = Number(process.env.PORT) || 4005; app.listen(port, () => console.log(`[api] VendorIQ API listening on :${port}`)); }).catch((e) => { console.error(e); process.exit(1); });
+  connectDb().then(async () => { const app = await createApp(); const port = Number(process.env.PORT) || 4005; app.listen(port, () => console.log(`[api] VendorIQ API listening on :${port}`)); }).catch(async (e) => { console.error(e); console.log("[api] MongoDB connection failed, but starting app anyway for LanceDB."); const app = await createApp(); const port = Number(process.env.PORT) || 4005; app.listen(port, () => console.log(`[api] VendorIQ API listening on :${port}`));; });
 }

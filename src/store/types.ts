@@ -36,7 +36,7 @@ export interface BidResult { tenderId: string; status: "Submitted" | "Under Eval
 export interface Inquiry { id: string; channel: "WhatsApp" | "Email" | "Website"; from: string; company: string; subject: string; body: string; receivedAt: string; status: "New" | "Inquiry" | "Attached" | "Ignored"; extracted?: { client?: string; industry?: string; requirement?: string; reference?: string; deadline?: string; value?: number; location?: string }; linkedTenderId?: string; linkedOpportunityId?: string; }
 
 export interface AuditEntry { id: string; at: string; user: string; action: string; entity: string; entityId: string; detail: string; }
-export interface AILogEntry { id: string; at: string; user: string; model: string; promptVersion: string; task: string; sources: string[]; input: string; outputSummary: string; confidence: Confidence; reviewStatus: "Pending" | "Accepted" | "Rejected" | "Edited"; approver?: string; }
+export interface AILogEntry { id: string; at: string; user: string; model: string; promptVersion: string; task: string; sources: string[]; input: string; outputSummary: string; confidence: Confidence; reviewStatus: "Pending" | "Accepted" | "Rejected" | "Edited"; approver?: string; reviewNote?: string; }
 export interface Notification { id: string; at: string; kind: string; text: string; href: string; read: boolean; }
 export interface User { id: string; name: string; email: string; role: string; active: boolean; }
 export interface Org { id: string; name: string; industries: string[]; plan: string; currency: string; }

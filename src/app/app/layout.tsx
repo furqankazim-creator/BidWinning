@@ -9,10 +9,10 @@ export const dynamic = "force-dynamic";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex h-screen overflow-hidden bg-app-bg text-app-text">
-      <Sidebar />
-      <div className="flex min-w-0 flex-1 flex-col">
-        <Topbar />
+    <div className="flex h-screen print:h-auto overflow-hidden print:overflow-visible bg-app-bg text-app-text">
+      <div className="print:hidden"><Sidebar /></div>
+      <div className="flex min-w-0 flex-1 flex-col print:h-auto print:block">
+        <div className="print:hidden"><Topbar /></div>
         <AppShell>{children}</AppShell>
       </div>
       <CommandPalette />

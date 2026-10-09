@@ -17,7 +17,7 @@ export default function DocumentsPage() {
   const [err, setErr] = useState<string | null>(null);
   const mb = (n: number) => `${(n / 1024 / 1024).toFixed(1)} MB`;
   const types = Array.from(new Set([...ind.documentTypes, ...s.docs.map((d) => d.kind)]));
-  const analyse = async (d: Doc) => { setAnalysing(d.id); setErr(null); const e = await s.analyzeDocument(d.id); if (e) setErr(e); setAnalysing(null); };
+  const analyse = async (d: Doc) => { setAnalysing(d.id); setErr(null); const e = await s.analyzeDocument(d.id); if (!e && tender) { await s.runTenderAnalysis(tender.id); } if (e) setErr(e); setAnalysing(null); };
   const analyseLegacy = (d: Doc) => { setAnalysing(d.id); setTimeout(() => { setDocs(d.id, { analysis: { Title: d.name.replace(/\.[^.]+$/, ""), Reference: tender?.reference || "—", Client: tender?.client || "—", Issuer: tender?.client || "—", Industry: ind.name, Location: tender?.region || "—", "Key dates": tender?.closing ? `Submission ${tender.closing}` : "not found", Value: tender?.value ? `${tender.currency} ${tender.value.toLocaleString()}` : "not found", Duration: "not found", "Tender type": tender?.tenderType || "—" } }); s.logAI({ model: s.profile.model, promptVersion: "doc-analyze v2", task: "Document analysis", sources: [d.name], input: "Extract general information", outputSummary: "10 fields; missing marked 'not found'", confidence: "Medium", reviewStatus: "Pending" }); setAnalysing(null); }, 1400); };
   const conf = (c?: Doc["confidentiality"]) => c === "Restricted" ? "red" : c === "Confidential" ? "yellow" : "outline";
 

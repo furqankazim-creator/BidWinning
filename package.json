@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "api": "npm --prefix server run dev:memory",
+    "api": "npm --prefix server run dev",
     "api:test": "npm --prefix server test",
     "dev:full": "concurrently -k \"npm run api\" \"NEXT_PUBLIC_API_URL=http://localhost:4005 next dev\"",
     "test:lifecycle": "tsx --tsconfig tsconfig.json tests/lifecycle.mts",
@@ -16,6 +16,9 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.126.0",
     "clsx": "^2.1.1",
+    "date-fns": "^4.4.0",
+    "html2canvas": "^1.4.1",
+    "jspdf": "^4.2.1",
     "lucide-react": "^0.475.0",
     "mammoth": "^1.12.3",
     "next": "^15.3.0",
@@ -30,6 +33,7 @@
     "@types/pdf-parse": "^1.1.5",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "concurrently": "^9.2.5",
     "tailwindcss": "^4.1.0",
     "tsx": "^4.23.15",
     "typescript": "^5"

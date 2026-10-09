@@ -5,7 +5,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 120;
 
-const MAX_CHARS = 180_000; // ~45k tokens; enough for typical tender volumes, chunk beyond this
+const MAX_CHARS = 12_000; // ~3k tokens; lowered to fit Groq's free tier 8000 TPM limit
 
 /** Extract plain text from an uploaded file (PDF, DOCX, TXT/MD/CSV). Returns text plus page markers for PDFs. */
 async function extractText(file: File): Promise<{ text: string; pages: number }> {
@@ -70,7 +70,7 @@ export async function POST(req: NextRequest) {
     try {
       const out = await completeJSON<{ sections: { title: string; body: string }[] }>(
         `You draft ${body.kind || "technical proposal"} sections for a bidder. Write in confident, specific, professional prose grounded ONLY in the supplied tender facts and document text; where a fact is unknown write "[to confirm: …]". 120–220 words per section, plain paragraphs (no headings inside). Return strict JSON.`,
-        `Return JSON {"sections":[{"title":"","body":""}]} for these titles: ${JSON.stringify(sections)}.\n\nTENDER FACTS: ${JSON.stringify(body.tender || {})}\nWORKSPACE FACTS: ${JSON.stringify(body.facts || {})}\n\nDOCUMENT TEXT:\n${text.slice(0, 60_000) || "(none indexed)"}`, 6000);
+        `Return JSON {"sections":[{"title":"","body":""}]} for these titles: ${JSON.stringify(sections)}.\n\nTENDER FACTS: ${JSON.stringify(body.tender || {})}\nWORKSPACE FACTS: ${JSON.stringify(body.facts || {})}\n\nDOCUMENT TEXT:\n${text.slice(0, 15_000) || "(none indexed)"}`, 3000);
       return Response.json({ sections: out.sections || [], provider: providerLabel() });
     } catch (e) { return Response.json({ error: e instanceof Error ? e.message : "draft failed" }, { status: 502 }); }
   }
@@ -81,7 +81,48 @@ export async function POST(req: NextRequest) {
       const analysis = await completeJSON<Record<string, string>>(SYSTEM, `${DOC_SCHEMA}\n\nDOCUMENT "${name}":\n${clipped}`, 1500);
       return Response.json({ name, pages, text, analysis, provider: providerLabel() });
     }
-    const result = await completeJSON<Record<string, unknown>>(SYSTEM, `${TENDER_SCHEMA}\n\nORGANISATION CONTEXT (bidder): ${JSON.stringify(context)}\n\nTENDER DOCUMENTS:\n${clipped}`, 12000);
+
+    // Retrieve relevant Master Library rules for this tender via parallel chunking
+    let masterLibraryRules = "";
+    try {
+      // 1. Break the document into small chunks
+      const paragraphs = clipped.split(/\n\s*\n/).map(p => p.trim()).filter(p => p.length > 50);
+      const chunks: string[] = [];
+      let currentChunk = "";
+      for (const p of paragraphs) {
+        if (currentChunk.length + p.length > 1500) {
+          chunks.push(currentChunk);
+          currentChunk = p;
+        } else {
+          currentChunk += (currentChunk ? "\n\n" : "") + p;
+        }
+      }
+      if (currentChunk) chunks.push(currentChunk);
+
+      // 2. Batch vector search all chunks in parallel
+      const searchRes = await fetch("http://localhost:4005/api/standards/search-batch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chunks })
+      });
+
+      if (searchRes.ok) {
+        const data = await searchRes.json();
+        // 3. Compile deduplicated master rules list
+        if (data.success && data.results?.length) {
+          masterLibraryRules = "MASTER LIBRARY RULES (MUST EVALUATE BIDDER COMPLIANCE AGAINST THESE):\n" + 
+            data.results.map((c: any) => `[${c.standardName}] ${c.text}`).join("\n\n");
+        }
+      }
+    } catch (e) {
+      console.error("Could not fetch Master Library rules via batch search", e);
+    }
+    
+    const promptContext = masterLibraryRules 
+      ? `\n\n${masterLibraryRules}\n\nIMPORTANT: When generating the 'requirements' and 'compliance' arrays, explicitly evaluate the tender against the above Master Library Rules. If a rule is mentioned or violated, flag it in compliance.` 
+      : "";
+
+    const result = await completeJSON<Record<string, unknown>>(SYSTEM, `${TENDER_SCHEMA}\n\nORGANISATION CONTEXT (bidder): ${JSON.stringify(context)}${promptContext}\n\nTENDER DOCUMENTS:\n${clipped}`, 3000);
     return Response.json({ result, provider: providerLabel(), chars: text.length, truncated: text.length > MAX_CHARS });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "unknown";
