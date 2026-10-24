@@ -107,15 +107,6 @@ export const milestones: T.Milestone[] = [
   { id: "m3-1", tenderId: "t3", name: "Contract signature", pct: 20, date: "2027-01-15" }, { id: "m3-2", tenderId: "t3", name: "Pilot go-live (10 facilities)", pct: 20, date: "2027-07-01" }, { id: "m3-3", tenderId: "t3", name: "National go-live", pct: 20, date: "2028-03-01" }, { id: "m3-4", tenderId: "t3", name: "Managed service (annual)", pct: 40, date: "2029-03-01" },
 ];
 
-export const competitors: T.Competitor[] = [
-  { id: "cp5", tenderId: "t2", name: "Al Naboodah Construction", capability: 5, pricing: 4, track: 5, vessels: [], note: "Grade 1; delivered E311 widening; strong local content." },
-  { id: "cp6", tenderId: "t2", name: "China State Construction (CSCEC)", capability: 4, pricing: 5, track: 4, vessels: [], note: "Aggressive pricing on recent MoT awards." },
-  { id: "cp7", tenderId: "t2", name: "Limak", capability: 4, pricing: 3, track: 3, vessels: [], note: "Airport-heavy portfolio; limited local road references." },
-  { id: "cp8", tenderId: "t3", name: "InterSystems (via local partner)", capability: 5, pricing: 2, track: 5, vessels: [], note: "Incumbent-style EHR; premium licence pricing." },
-  { id: "cp9", tenderId: "t3", name: "Dedalus", capability: 4, pricing: 3, track: 4, vessels: [], note: "Strong in public health; recent Africa wins." },
-  { id: "cp10", tenderId: "t3", name: "Local SI + open-source EHR", capability: 3, pricing: 5, track: 2, vessels: [], note: "Lowest price; residency native; delivery risk." },
-];
-
 export const reviews: T.Review[] = [
   { id: "rv5", tenderId: "t2", stage: "Technical Review", reviewer: "Priya Natarajan", status: "Pending", comment: "", at: d("2026-09-15") },
   { id: "rv6", tenderId: "t2", stage: "Legal Review", reviewer: "Dana Whitfield", status: "Revision requested", comment: "JV heads of terms must precede bid submission.", at: d("2026-09-14") },

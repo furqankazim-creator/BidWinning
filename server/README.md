@@ -1,6 +1,6 @@
-# VendorIQ API (Express + MongoDB)
+# BidWinning API (Express + MongoDB)
 
-Multi-tenant REST API for the VendorIQ frontend. Every business record is scoped to an organisation; JWT auth with email + password and invite links.
+Multi-tenant REST API for the BidWinning frontend. Every business record is scoped to an organisation; JWT auth with email + password and invite links.
 
 ## Run locally
 ```bash

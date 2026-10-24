@@ -4,7 +4,7 @@ import { modules, howItWorks } from "@/lib/marketing-data";
 import { brand } from "@/config/brand";
 
 const lifecycle = ["DISCOVER", "QUALIFY", "ANALYZE", "DECIDE", "PLAN", "ENGINEER", "PROCURE", "COST", "PRICE", "PROPOSE", "REVIEW", "APPROVE", "SUBMIT", "WIN/LOSE", "CONTRACT", "PROJECT", "LEARN"];
-const workspaceTabs = ["Overview", "Documents", "AI Analysis", "Requirements", "Compliance", "Clarifications", "Qualifications", "Risks", "Engineering", "Procurement", "Costing", "Pricing", "Competition", "Technical Proposal", "Commercial Proposal", "Reviews", "Deliverables", "Submission", "Result", "Lessons Learned"];
+const workspaceTabs = ["Overview", "Documents", "AI Analysis", "Requirements", "Compliance", "Clarifications", "Qualifications", "Risks", "Engineering", "Procurement", "Costing", "Pricing", "Technical Proposal", "Commercial Proposal", "Reviews", "Deliverables", "Submission", "Result", "Lessons Learned"];
 
 export default function Platform() {
   return (

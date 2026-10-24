@@ -1,10 +1,10 @@
                                                                                         # Smart Water Meters — Dhahran Community (Saudi Aramco GSC 8142331)
                                                                                         ## Client review of the AI analysis — requirements & feedback
 
-                                                                                        **Meeting:** 22 Sep 2026, 12:35 PKT · **Attendees:** Khan, Ahmed Masroor · **Tender:** VendorIQ workspace `t5`
+                                                                                        **Meeting:** 22 Sep 2026, 12:35 PKT · **Attendees:** Khan, Ahmed Masroor · **Tender:** BidWinning workspace `t5`
                                                                                         **Purpose:** Review the AI tender review of the Saudi Aramco Scope of Work (12 pp.) and record the client's additional requirements, interpretations and next steps.
 
-                                                                                        Legend — **Source**: `SOW p.x` = stated in the Scope of Work · `Client 22-Sep` = client instruction/interpretation from this meeting (not in the SOW) · **Status**: how it is recorded in VendorIQ.
+                                                                                        Legend — **Source**: `SOW p.x` = stated in the Scope of Work · `Client 22-Sep` = client instruction/interpretation from this meeting (not in the SOW) · **Status**: how it is recorded in BidWinning.
 
                                                                                         ---
 
@@ -29,7 +29,7 @@
 
                                                                                         ## 2. Client feedback on the AI review
 
-                                                                                        | Topic | Client comment | Action in VendorIQ |
+                                                                                        | Topic | Client comment | Action in BidWinning |
                                                                                         |---|---|---|
                                                                                         | Security of work site & materials yard | "Proper security … acceptable to Saudi Aramco" (General Note p.6) is **vague — a grey area** that must be clarified during bidding | New clarification **C-11** (see §3) |
                                                                                         | Permit receiver | SOW does not state that the **work permit receiver must be physically present** at site — a missing requirement | Requirement R-35 + clarification **C-12** |

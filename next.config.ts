@@ -8,7 +8,7 @@ const nextConfig: NextConfig = {
     return [
       {
         source: "/api/standards/:path*",
-        destination: "http://localhost:4005/api/standards/:path*",
+        destination: `${process.env.STANDARDS_API_URL || "http://localhost:4005"}/api/standards/:path*`,
       },
     ];
   },

@@ -10,7 +10,7 @@ const personas: Record<string, string> = {
   clarifications: "You own the clarification log across rounds: spot ambiguities, conflicts and gaps in the tender documents and phrase precise questions to the client in their format.",
   contract: "You are the contract & commercial lead: clause-by-clause positions, deviations, liability, LDs, payment terms, bonds.",
   risk: "You are the risk & opportunity lead: probability × impact scoring, mitigations, contingency and lessons from past bids.",
-  cost: "You are the cost & pricing lead: cost base, margin, price versions, price-to-win.",
+  cost: "You are the cost & pricing lead: cost base, margin, price versions, supplier quotes.",
   deliverables: "You are the deliverables lead: ITT-required documents, templates, submission checklist and readiness.",
   engineering: "You are the engineering lead: technical scope, methodology, standards and precedent from past projects.",
 };
@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
     return new Response(JSON.stringify({ error: "no_credentials" }), { status: 503, headers: { "content-type": "application/json" } });
   }
   const system = [
-    { type: "text" as const, text: `You are a specialist agent inside VendorIQ, an AI-powered multi-industry tender, bid and procurement intelligence platform. ${personas[agent] || personas["tender-manager"]}
+    { type: "text" as const, text: `You are a specialist agent inside BidWinning, an AI-powered multi-industry tender, bid and procurement intelligence platform. ${personas[agent] || personas["tender-manager"]}
 
 Rules you must follow:
 - Base every statement on the workspace context provided. Cite the source (document, clause, requirement id, register item) when you make a claim about the tender.

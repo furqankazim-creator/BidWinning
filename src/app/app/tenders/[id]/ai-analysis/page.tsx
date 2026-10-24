@@ -9,14 +9,16 @@ import Link from "next/link";
 import { contractTerms } from "@/lib/industries";
 import { cn } from "@/lib/cn";
 import { PrintableReport } from "@/components/app/PrintableReport";
+import { VerifiedReportView } from "@/components/app/VerifiedReportView";
+import { ExcelButton } from "@/components/app/ReportExports";
 
 export default function AIAnalysis() {
   const { id } = useParams<{ id: string }>(); const s = useStore();
   const sum = s.aiSummaries.find((x) => x.tenderId === id);
-  const [open, setOpen] = useState(false); const [running, setRunning] = useState(false); const [model, setModel] = useState(s.profile.model as string); const [err, setErr] = useState<string | null>(null);
+  const [open, setOpen] = useState(false); const [running, setRunning] = useState(false); const [model, setModel] = useState(s.profile.model as string); const [err, setErr] = useState<string | null>(null); const [depth, setDepth] = useState<"standard" | "deep">("standard"); const prog = s.analysisProgress;
   const docs = s.docs.filter((d) => (d.tenderId ?? "t1") === id);
   const indexed = docs.filter((d) => d.status === "INDEXED" && d.text);
-  const run = async () => { setRunning(true); setErr(null); const e = await s.runTenderAnalysis(id); if (e) setErr(e); setRunning(false); if (!e) setOpen(false); };
+  const run = async () => { setRunning(true); setErr(null); const e = await s.runTenderAnalysis(id, depth); if (e) setErr(e); setRunning(false); if (!e) setOpen(false); };
   const gTone = (g: string) => (g === "GO" ? "green" : g === "NO-GO" ? "red" : g === "CONDITIONAL GO" ? "yellow" : "outline");
   return (
     <>
@@ -24,11 +26,13 @@ export default function AIAnalysis() {
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div><h2 className="font-display text-xl text-app-text">AI Document Intelligence</h2><p className="text-xs text-app-muted">{sum ? `Generated ${new Date(sum.generatedAt).toLocaleString()} · model ${sum.model} · every finding cites its source and needs human verification` : "No analysis yet. Upload documents, then analyse."}</p></div>
           <div className="flex gap-2">
+            {sum && <ExcelButton tenderId={id} />}
             {sum && <Button variant="outline" onClick={() => window.print()}><FileText size={13} /> Download PDF Report</Button>}
             <Button variant="primary" onClick={() => setOpen(true)}><Sparkles size={13} /> {sum ? "Re-analyse documents" : "Analyze Documents"}</Button>
           </div>
         </div>
         {err && <Card className="mb-4 border-app-red/40 p-3 text-xs text-app-red">{err}</Card>}
+        {s.analysisBusy && <Card className="mb-4 border-app-accent/40 p-4"><div className="flex items-center justify-between text-xs"><span className="text-app-text">{prog?.msg || "Starting…"}</span><span className="font-mono text-app-dim">{prog?.pct ?? 0}%</span></div><div className="mt-2 h-1.5 w-full overflow-hidden rounded bg-app-panel-2"><div className="h-full bg-app-accent transition-all" style={{ width: `${prog?.pct ?? 0}%` }} /></div><p className="mt-2 text-[11px] text-app-dim">Keep this tab open. The free AI tier allows ~7k tokens per minute, so a full verified review takes several minutes; library checks, quote checks and consistency checks run locally.</p></Card>}
         {!sum && <Card className="p-8 text-center text-xs text-app-dim">{indexed.length ? `Ready: ${indexed.length} indexed document(s), ${indexed.reduce((a, d) => a + (d.pages || 0), 0)} pages. Run analysis to produce the executive summary, cited requirements, contract-term review, clarifications, risks, compliance items and a reasoned recommendation.` : "No indexed documents yet. Upload the ITT / RFP / SOW under Documents, then run the analysis."}</Card>}
         {sum && (
           <div className="space-y-4">
@@ -49,13 +53,15 @@ export default function AIAnalysis() {
                   </div>
                 ); })}
               </Card></div>
+            <VerifiedReportView tenderId={id} />
             <Card className="flex items-start gap-3 p-4 text-xs text-app-muted"><AlertTriangle size={14} className="mt-0.5 shrink-0 text-app-yellow" />The system never presents AI assumptions as confirmed facts. Extracted requirements are listed under Requirements with status <em>Needs Verification</em> until a reviewer approves, edits or rejects them. Every run is recorded in Administration → AI Governance.</Card>
           </div>
         )}
         <Modal open={open} onClose={() => setOpen(false)} title="Analyze documents" sub="Extracts general information, requirements with citations, contract terms and a reasoned recommendation.">
           <RunEstimate docs={indexed} model={model} setModel={setModel} />
+          <div className="mt-3 grid gap-2 sm:grid-cols-2">{([["standard", "Standard", "≈ 40 key requirements judged against the library · ≈ 6–8 min on the free tier"], ["deep", "Deep", "≈ 120 requirements judged · ≈ 20–25 min on the free tier"]] as const).map(([v, t, d]) => <button key={v} type="button" onClick={() => setDepth(v)} className={cn("rounded border p-3 text-left text-xs", depth === v ? "border-app-accent bg-app-accent/10" : "border-app-border hover:border-app-border-2")}><p className="font-semibold text-app-text">{t}</p><p className="mt-0.5 text-app-muted">{d}</p></button>)}</div>
           <p className="mt-3 text-[11px] text-app-muted">Outputs are written as AI drafts: requirements → Needs Verification, clauses & clarifications → pending review, risks/compliance/deliverables → open. Nothing is marked approved automatically.</p>
-          <div className="mt-4 flex justify-end gap-2"><Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button><Button variant="primary" onClick={run} disabled={running || !indexed.length}><Sparkles size={13} /> {running ? "Analysing… (30–90 s)" : "Run analysis"}</Button></div>
+          <div className="mt-4 flex justify-end gap-2"><Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button><Button variant="primary" onClick={run} disabled={running || !indexed.length}><Sparkles size={13} /> {running ? "Analysing… see progress above" : "Run verified analysis"}</Button></div>
         </Modal>
       </div>
       <PrintableReport tenderId={id} />

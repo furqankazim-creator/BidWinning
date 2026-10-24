@@ -13,8 +13,8 @@ When a tender or a bidder's report is uploaded into the system, the LLM should a
 2.  **Retrieve** the specific clauses from those massive PDFs.
 3.  **Cross-reference** the bidder's technical submission against those clauses to generate a **Compliance & Gap Analysis Report**.
 
-## 2. What We Currently Do (VendorIQ's Current State)
-Currently, VendorIQ is exceptionally good at **Tender-Specific Analysis**.
+## 2. What We Currently Do (BidWinning's Current State)
+Currently, BidWinning is exceptionally good at **Tender-Specific Analysis**.
 *   We allow users to upload specific tender documents (like a 12-page Scope of Work).
 *   Our `/api/analyze` pipeline reads the document and extracts Requirements, Risks, Clarifications, and Deliverables.
 *   **The Limitation:** Right now, if a Scope of Work says *"Must comply with NFPA 20"*, our AI logs it as a compliance requirement. However, the AI does not inherently know all the rules *inside* the 100+ page NFPA 20 PDF, because those PDFs are not loaded into the active memory of the tender. Loading hundreds of standard PDFs into every single LLM prompt is impossible due to token limits and cost.
@@ -23,7 +23,7 @@ Currently, VendorIQ is exceptionally good at **Tender-Specific Analysis**.
 To turn those folders into a "Subject-Matter Expert Library", we must implement a **Retrieval-Augmented Generation (RAG) Architecture**.
 
 ### A. The Master Library (Vector Database)
-Instead of attaching PDFs to individual tenders, we need to create a global **Standards Library** in VendorIQ. 
+Instead of attaching PDFs to individual tenders, we need to create a global **Standards Library** in BidWinning. 
 *   We will parse all the PDFs (ASME, SAES, etc.) using OCR and text extraction.
 *   We will split the text into small "chunks" (e.g., by clause or paragraph).
 *   We will convert these chunks into vector embeddings and store them in a Vector Database (like Pinecone, MongoDB Vector Search, or pgvector).
@@ -39,12 +39,12 @@ The platform will generate a detailed **Bidder Evaluation Report** that highligh
 *   ✅ **Compliant Items:** (e.g., "Bidder's scaffolding meets Construction Safety Manual Section 4.")
 *   ❌ **Deviations / Gaps:** (e.g., "Bidder proposed DIN materials, but Saudi Aramco SAMSS-004 requires ASTM.")
 
-## 4. Proposed Roadmap for VendorIQ
+## 4. Proposed Roadmap for BidWinning
 To execute this for the client, we need to build the following features:
 
 | Phase | Feature | Description |
 | :--- | :--- | :--- |
-| **Phase 1** | **Global Document Vault UI** | Create a new section in VendorIQ (outside of individual tenders) where admins can upload, categorize, and update global standards. |
+| **Phase 1** | **Global Document Vault UI** | Create a new section in BidWinning (outside of individual tenders) where admins can upload, categorize, and update global standards. |
 | **Phase 2** | **Ingestion & Indexing Pipeline** | Build a backend script that takes these heavy PDFs, extracts the text while preserving tables (using advanced parsers like LlamaParse or Unstructured), and indexes them into a Vector DB. |
 | **Phase 3** | **Compliance Agent Integration** | Update our LLM prompt chain. Before generating a final review, the LLM will trigger a "tool call" to search the Master Library for any standards it needs to verify. |
 | **Phase 4** | **Bidder Evaluation Dashboard** | Create a new tab in the Tender Workspace specifically for "Bidder Evaluation," where proposals are uploaded and automatically scored against the Master Library. |

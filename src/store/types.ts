@@ -1,5 +1,6 @@
 export type ActionStatus = "backlog" | "ready" | "in_progress" | "waiting" | "complete";
-export interface ActionItem { tenderId?: string; id: string; title: string; agent: string; suggested?: boolean; status: ActionStatus; createdAt: string; }
+export type ActionPriority = "high" | "medium" | "low";
+export interface ActionItem { tenderId?: string; id: string; title: string; agent: string; suggested?: boolean; status: ActionStatus; createdAt: string; priority?: ActionPriority; assignee?: string; due?: string; notes?: string; href?: string; source?: string; completedAt?: string; }
 
 export type TenderStage = "Analysis" | "Qualification" | "Go/No-Go" | "Bid Preparation" | "Review" | "Approval" | "Submitted" | "Under Evaluation" | "Clarification" | "Negotiation" | "Awarded" | "Rejected" | "Withdrawn" | "Cancelled";
 export type GoNoGo = "Pending" | "GO" | "CONDITIONAL GO" | "NO-GO";
@@ -19,14 +20,41 @@ export interface Contract { id: string; tenderId: string; name: string; client: 
 export interface Company { id: string; name: string; industry: string; subIndustry: string; country: string; region: string; website: string; type: "Client" | "Partner" | "Competitor" | "Prospect"; services: string[]; certifications: string[]; notes: string; createdAt: string; }
 export interface Contact { id: string; companyId: string; name: string; title: string; email: string; phone: string; role: string; notes: string; }
 export type OppStage = "Lead" | "Prospect" | "Qualified" | "Opportunity" | "Tender" | "Bid" | "Won" | "Lost";
-export interface Opportunity { id: string; name: string; companyId: string; industry: string; service: string; region: string; value: number; currency: string; probability: number; expectedAward: string; expectedStart: string; owner: string; source: string; stage: OppStage; competitors: string[]; notes: string; tenderId?: string; createdAt: string; }
+export interface Opportunity { id: string; name: string; companyId: string; industry: string; service: string; region: string; value: number; currency: string; probability: number; expectedAward: string; expectedStart: string; owner: string; source: string; stage: OppStage; notes: string; tenderId?: string; createdAt: string; }
 export interface Activity { id: string; entity: "company" | "opportunity" | "tender"; entityId: string; kind: "Note" | "Call" | "Meeting" | "Email" | "WhatsApp"; text: string; by: string; at: string; }
 
 export interface Requirement { id: string; tenderId: string; text: string; category: string; priority: "Must" | "Should" | "Could"; sourceDoc: string; page: number; section: string; clause: string; deadline?: string; evidence: string; status: "Needs Verification" | "Approved" | "Rejected" | "Compliant" | "Non-Compliant" | "Partial"; reviewer: string; comments: string; ai: boolean; confidence: Confidence; }
 export type ComplianceStatus = "Compliant" | "Non-Compliant" | "Partially Compliant" | "Missing" | "Expired" | "Unknown" | "Needs Review";
 export interface ComplianceItem { id: string; tenderId: string; item: string; status: ComplianceStatus; evidence: string; expiry?: string; owner: string; notes: string; }
 export interface Capability { id: string; name: string; category: string; value: string; expiry?: string; evidence: string; }
-export interface AISummary { tenderId: string; generatedAt: string; model: string; sections: Record<string, string[]>; recommendation: { verdict: GoNoGo; reasoning: string }; contractTerms: { term: string; finding: string; risk: "High" | "Medium" | "Low"; source: string }[]; }
+export interface AISummary { tenderId: string; generatedAt: string; model: string; sections: Record<string, string[]>; recommendation: { verdict: GoNoGo; reasoning: string }; contractTerms: { term: string; finding: string; risk: "High" | "Medium" | "Low"; source: string }[]; report?: VerifiedReport; }
+
+/** Output of the verified analysis pipeline (library-grounded, every quote and rule machine-checked). */
+export type FindingVerdict = "Conforms" | "Conflicts" | "Reference only" | "Not covered in library";
+export interface VFinding {
+  id: string; statementId: string; doc: string; page: number; section: string; category: string; quote: string; ocr?: boolean;
+  verdict: FindingVerdict; ruleId?: string; standardName?: string; ruleText?: string; ruleQuote?: string; reasoning: string; confidence: Confidence; knowledge?: string;
+  checks: { quote: boolean; ruleQuote: boolean | null; ruleExists: boolean | null; ruleActive: boolean | null }; needsReview: boolean; note?: string;
+}
+export interface VRegistryItem {
+  code: string; kind: string; status: "verified-in-library" | "not-in-library" | "outside-library-scope" | "project-doc-provided" | "project-doc-missing";
+  citations: { page: number; section: string; listed: boolean }[]; listedInSection6: boolean; titleInTender: string; libraryName: string | null; libraryYear: number | null; revisions: { name: string; year: number | null; active: boolean }[];
+}
+export interface VIssue { id: string; kind: string; severity: "High" | "Medium" | "Low" | "Info"; title: string; detail: string; pages: number[]; items?: string[]; }
+export interface VKnowledge {
+  disclaimer: string;
+  editions: { code: string; cited: string; status: "Superseded" | "Current" | "Unsure"; note: string }[];
+  omitted: { name: string; code?: string; jurisdiction: string; reason: string; libraryVerified: boolean; libraryName?: string; libraryRule?: string; libraryRuleId?: string }[];
+}
+export interface VerifiedReport {
+  version: 1; generatedAt: string; promptVersion: string; model: string; depth: "standard" | "deep"; aiErrors?: string[];
+  library: { version: number; rows: number; indexedAt: string; files: number; standardFiles: number; codedStandards: number; unavailable?: string };
+  docs: { name: string; pages: number; unreadablePages: number[]; ocrPages: number; ocrRecoveredLines: number }[];
+  coverage: { pagesTotal: number; pagesRead: number; unreadablePages: number[]; statements: number; judged: number; duplicatesMerged: number; ocrRecoveredLines: number; codesCited: number; codesVerified: number };
+  stats: { conforms: number; conflicts: number; referenceOnly?: number; notCovered: number; failedChecks: number; judgeFailed?: number; aiStatementsDropped: number; aiCalls: number; seconds: number };
+  findings: VFinding[]; registry: VRegistryItem[]; issues: VIssue[]; knowledge: VKnowledge;
+  approvals: Record<string, { by: string; at: string; decision: "Approved" | "Rejected"; note?: string }>;
+}
 
 export interface Review { id: string; tenderId: string; stage: string; reviewer: string; status: "Pending" | "Approved" | "Rejected" | "Revision requested"; comment: string; at: string; }
 export interface Approval { id: string; tenderId: string; subject: string; kind: "Go/No-Go" | "Pricing" | "Technical proposal" | "Commercial proposal" | "Submission" | "Procurement award"; requestedBy: string; approver: string; status: "Pending" | "Approved" | "Rejected"; reason: string; at: string; }
@@ -48,7 +76,7 @@ export interface Vendor { id: string; name: string; type?: string; industry?: st
 export interface ProcPackage { id: string; tenderId?: string; name: string; category: "Material" | "Equipment" | "Software" | "Services" | "Subcontractors" | "Logistics" | "Other"; requirement: string; status: "Requirement" | "RFQ sent" | "Quotations" | "Evaluation" | "Approval" | "Purchased"; recommendedVendorId?: string; weights: { price: number; lead: number; quality: number; compliance: number }; }
 export interface Quotation { id: string; packageId: string; vendorId: string; price: number; currency: string; leadWeeks: number; quality: 1 | 2 | 3 | 4 | 5; compliance: number; scope: string; notes: string; receivedAt: string; }
 
-export interface Doc { tenderId?: string; id: string; name: string; size: number; rev: number; kind: string; status: "INDEXED" | "PROCESSING" | "FAILED"; uploadedAt: string; uploadedBy?: string; language?: string; confidentiality?: "Public" | "Internal" | "Confidential" | "Restricted"; permissions?: string[]; history?: { rev: number; at: string; by: string; note: string }[]; analysis?: Record<string, string>; text?: string; pages?: number; }
+export interface Doc { tenderId?: string; id: string; name: string; size: number; rev: number; kind: string; status: "INDEXED" | "PROCESSING" | "FAILED"; uploadedAt: string; uploadedBy?: string; language?: string; confidentiality?: "Public" | "Internal" | "Confidential" | "Restricted"; permissions?: string[]; history?: { rev: number; at: string; by: string; note: string }[]; analysis?: Record<string, string>; text?: string; pages?: number; progress?: string; ocr?: { available: boolean; used: boolean; pagesOcred: number; recoveredLines: number; unusablePages: number[]; avgConfidence: number; note?: string }; }
 
 export type ReviewStatus = "Draft" | "Internal Review" | "Approved" | "Answered" | "Closed" | "Pending" | "Rejected";
 export type Confidence = "High" | "Medium" | "Low";
@@ -82,7 +110,6 @@ export interface Deliverable { tenderId?: string; id: string; n: number; name: s
 export interface CostLine { tenderId?: string; id: string; wbs: string; description: string; category: string; qty: number; unit: string; rate: number; hours?: number; contingency: number; }
 export interface Milestone { tenderId?: string; id: string; name: string; pct: number; date: string; }
 
-export interface Competitor { tenderId?: string; id: string; name: string; capability: number; pricing: number; track: number; vessels: string[]; note: string; }
 export interface Lesson { id: string; tender: string; outcome: "Won" | "Lost" | "No bid"; lesson: string; date: string; }
 
 export interface ChatMsg { id: string; tenderId?: string; agent: string; role: "user" | "assistant"; text: string; at: string; streaming?: boolean; simulated?: boolean; }

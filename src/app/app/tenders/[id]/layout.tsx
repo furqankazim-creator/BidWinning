@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useParams, usePathname } from "next/navigation";
 import { Clock, Building2, Tag, Wallet, User, Activity } from "lucide-react";
 import { Badge, Card, Label, ProgressBar } from "@/components/ui";
-import { useStore, daysLeft, tenderHealth } from "@/store/useStore";
+import { useStore, daysLeft, dueLabel, tenderHealth, scoped } from "@/store/useStore";
 import { useIndustry } from "@/lib/useIndustries";
 import { money } from "@/components/app/charts";
 import { cn } from "@/lib/cn";
@@ -31,9 +31,9 @@ export default function TenderLayout({ children }: { children: React.ReactNode }
   const h = tenderHealth(s, t.id);
   const days = t.closing ? daysLeft(t.closing) : null;
   const gTone = t.goNoGo === "GO" ? "green" : t.goNoGo === "NO-GO" ? "red" : t.goNoGo === "CONDITIONAL GO" ? "yellow" : "outline";
-  const aiPending = s.requirements.filter((r) => r.tenderId === t.id && r.status === "Needs Verification").length + s.clarifications.filter((c) => c.pending).length + s.clauses.filter((c) => c.pending).length;
+  const aiPending = s.requirements.filter((r) => r.tenderId === t.id && r.status === "Needs Verification").length + scoped(s.clarifications, t.id).filter((c) => c.pending).length + scoped(s.clauses, t.id).filter((c) => c.pending).length;
   const missingDocs = s.complianceItems.filter((c) => c.tenderId === t.id && ["Missing", "Expired"].includes(c.status));
-  const hiRisks = s.risks.filter((r) => r.kind === "Risk" && r.status === "Open" && r.probability * r.impact >= 10).length;
+  const hiRisks = scoped(s.risks, t.id).filter((r) => r.kind === "Risk" && r.status === "Open" && r.probability * r.impact >= 10).length;
   const pv = s.priceVersions.filter((p) => p.tenderId === t.id); const locked = pv.find((p) => p.locked);
   const revs = s.reviews.filter((r) => r.tenderId === t.id); const readiness = Math.round((revs.filter((r) => r.status === "Approved").length / Math.max(revs.length, 7)) * 100);
 
@@ -52,8 +52,8 @@ export default function TenderLayout({ children }: { children: React.ReactNode }
       <div className="grid gap-5 xl:grid-cols-[1fr_280px]">
         <div className="min-w-0 print:w-full">{children}</div>
         <aside className="space-y-3 print:hidden">
-          <Card className="p-4"><Label>Deadline</Label><p className={cn("mt-1 font-display text-xl", days !== null && days <= 30 ? "text-app-red" : "text-app-text")}>{days !== null ? `${days} days` : "—"}</p><p className="text-[11px] text-app-dim">{t.closing || "not set"}</p></Card>
-          <Card className="p-4"><Label>Tender health · {h.score}/100</Label><div className="mt-2 space-y-2">{h.factors.map((f) => <div key={f.label}><div className="flex justify-between text-[11px]"><span className="text-app-text">{f.label}</span><span className="text-app-muted">{f.value}%</span></div><ProgressBar value={f.value} tone={f.value >= 70 ? "green" : f.value >= 40 ? "yellow" : "red"} className="mt-0.5" /></div>)}</div></Card>
+          <Card className="p-4"><Label>Deadline</Label><p className={cn("mt-1 font-display text-xl", days !== null && days <= 30 ? "text-app-red" : "text-app-text")}>{days !== null ? dueLabel(t.closing, true) : "—"}</p><p className="text-[11px] text-app-dim">{t.closing || "not set"}</p></Card>
+          <Card className="p-4"><Label>Tender health · {h.score}/100</Label><div className="mt-2 space-y-2">{h.factors.map((f) => <div key={f.label} title={f.hint}><div className="flex justify-between text-[11px]"><span className="text-app-text">{f.label}</span><span className="text-app-muted">{f.na ? "n/a" : `${f.value}%`}</span></div><ProgressBar value={f.na ? 0 : f.value} tone={f.value >= 70 ? "green" : f.value >= 40 ? "yellow" : "red"} className="mt-0.5" /></div>)}</div></Card>
           <Link href={w("/go-no-go")}><Card className="p-4 hover:border-app-border-2"><Label>Go / No-Go</Label><p className="mt-1 flex items-center gap-2"><Badge tone={gTone}>{t.goNoGo}</Badge></p>{t.goNoGoReason && <p className="mt-1 text-[11px] text-app-dim">{t.goNoGoReason}</p>}</Card></Link>
           <Link href={w("/requirements")}><Card className="p-4 hover:border-app-border-2"><Label>AI review</Label><p className={cn("mt-1 font-display text-xl", aiPending ? "text-app-accent" : "text-app-text")}>{aiPending}</p><p className="text-[11px] text-app-dim">findings need human verification</p></Card></Link>
           <Link href={w("/compliance")}><Card className="p-4 hover:border-app-border-2"><Label>Missing documents</Label><p className={cn("mt-1 font-display text-xl", missingDocs.length ? "text-app-red" : "text-app-green")}>{missingDocs.length}</p>{missingDocs.slice(0, 3).map((m) => <p key={m.id} className="text-[11px] text-app-dim">• {m.item} ({m.status})</p>)}</Card></Link>

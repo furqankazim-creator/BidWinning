@@ -22,7 +22,7 @@ export function ChatPanel() {
     clarifications: ["Draft two clarifications for the biggest gaps in the ITT", "Which requirements conflict with each other?", "Rewrite clarification 001 in the client's format"],
     contract: ["Which clauses are walk-away items and why?", "Propose a fallback position on liability", "Summarise payment and bond terms with sources"],
     risk: ["Which open risks should move to the deviation register?", "Recommend contingency per risk", "What did we learn on past bids that applies here?"],
-    cost: ["Sanity-check the cost build-up for double-counted contingency", "What margin gets us to price-to-win?", "Explain the current price version"],
+    cost: ["Sanity-check the cost build-up for double-counted contingency", "Which cost lines lack a supplier quote?", "Explain the current price version"],
     deliverables: ["Which ITT deliverables are missing or unassigned?", "Build a submission checklist from the requirements", "What do we need for compliance evidence?"],
     engineering: ["Outline the methodology section from the scope", "Which technical requirements need verification?", "List standards referenced in the documents"],
   };

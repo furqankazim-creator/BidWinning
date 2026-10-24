@@ -3,6 +3,7 @@ import { Fraunces, Newsreader, IBM_Plex_Mono, IBM_Plex_Sans } from "next/font/go
 import "./globals.css";
 import { brand } from "@/config/brand";
 import { themeBootScript } from "@/components/marketing/Theme";
+import { I18nProvider } from "@/lib/i18n";
 
 const fraunces = Fraunces({ subsets: ["latin"], variable: "--font-fraunces", axes: ["opsz", "SOFT"] });
 const newsreader = Newsreader({ subsets: ["latin"], variable: "--font-newsreader", style: ["normal", "italic"] });
@@ -18,7 +19,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" suppressHydrationWarning className={`${fraunces.variable} ${newsreader.variable} ${plexMono.variable} ${plexSans.variable}`}>
       <head><script dangerouslySetInnerHTML={{ __html: themeBootScript }} /></head>
-      <body>{children}</body>
+      <body>
+        <I18nProvider>
+          {children}
+        </I18nProvider>
+      </body>
     </html>
   );
 }

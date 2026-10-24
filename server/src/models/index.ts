@@ -25,7 +25,7 @@ export const Audit = mongoose.model("Audit", auditSchema);
 const settingsSchema = new Schema({ orgId: { type: Schema.Types.ObjectId, required: true, unique: true }, data: { type: Schema.Types.Mixed, default: {} } }, { timestamps: true, minimize: false });
 export const Settings = mongoose.model("Settings", settingsSchema);
 
-export const COLLECTIONS = ["tenders", "actions", "projects", "vendors", "docs", "clarifications", "clauses", "qualifications", "risks", "deliverables", "costLines", "milestones", "competitors", "lessons", "companies", "contacts", "opportunities", "activities", "requirements", "complianceItems", "capabilities", "aiSummaries", "reviews", "approvals", "priceVersions", "proposalSections", "bidResults", "inquiries", "contracts", "aiLog", "notifications", "customIndustries", "procPackages", "quotations", "submissions", "chat"] as const;
+export const COLLECTIONS = ["tenders", "actions", "projects", "vendors", "docs", "clarifications", "clauses", "qualifications", "risks", "deliverables", "costLines", "milestones", "lessons", "companies", "contacts", "opportunities", "activities", "requirements", "complianceItems", "capabilities", "aiSummaries", "reviews", "approvals", "priceVersions", "proposalSections", "bidResults", "inquiries", "contracts", "aiLog", "notifications", "customIndustries", "procPackages", "quotations", "submissions", "chat"] as const;
 export type CollectionName = (typeof COLLECTIONS)[number];
 /** Collections whose records are keyed by tenderId rather than id. */
 export const KEYED_BY_TENDER = new Set(["aiSummaries", "bidResults"]);

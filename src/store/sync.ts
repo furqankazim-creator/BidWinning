@@ -8,7 +8,7 @@
 import { api, apiEnabled, getSession } from "@/lib/api";
 import { useStore } from "./useStore";
 
-export const SYNCED = ["tenders", "actions", "projects", "vendors", "docs", "clarifications", "clauses", "qualifications", "risks", "deliverables", "costLines", "milestones", "competitors", "lessons", "companies", "contacts", "opportunities", "activities", "requirements", "complianceItems", "capabilities", "aiSummaries", "reviews", "approvals", "priceVersions", "proposalSections", "bidResults", "inquiries", "contracts", "aiLog", "notifications", "customIndustries", "procPackages", "quotations", "submissions", "chat"] as const;
+export const SYNCED = ["tenders", "actions", "projects", "vendors", "docs", "clarifications", "clauses", "qualifications", "risks", "deliverables", "costLines", "milestones", "lessons", "companies", "contacts", "opportunities", "activities", "requirements", "complianceItems", "capabilities", "aiSummaries", "reviews", "approvals", "priceVersions", "proposalSections", "bidResults", "inquiries", "contracts", "aiLog", "notifications", "customIndustries", "procPackages", "quotations", "submissions", "chat"] as const;
 type Synced = (typeof SYNCED)[number];
 const SETTINGS = ["margin", "profile", "lastExtraction"] as const;
 

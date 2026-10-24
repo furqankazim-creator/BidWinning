@@ -11,9 +11,11 @@ export default function SetupPage() {
   const { tenders, activeTenderId, updateTender, docs, deliverables, deleteDeliverable, runExtraction, runTenderAnalysis, lastExtraction, profile } = useScopedStore();
   const t = tenders.find((x) => x.id === activeTenderId);
   const [open, setOpen] = useState(false); const [running, setRunning] = useState(false); const [model, setModel] = useState(profile.model);
+  const [runErr, setRunErr] = useState<string | null>(null);
   if (!t) return null;
   const set = (k: string, v: string) => updateTender(t.id, { metadata: { ...t.metadata, [k]: v }, ...(k === "Submission deadline" ? { closing: v } : {}), ...(k === "Client" ? { client: v } : {}) });
-  const [runErr, setRunErr] = useState<string | null>(null);
+  // Client and deadline live on the tender itself (set by the create form, Overview and AI analysis) — show those.
+  const value = (f: string) => (f === "Client" ? t.client : f === "Submission deadline" ? t.closing : t.metadata[f]) || "";
   const run = async () => { setRunning(true); setRunErr(null); const e = await runTenderAnalysis(t.id); if (e) setRunErr(e); else { runExtraction(); setOpen(false); } setRunning(false); };
 
   return (
@@ -25,7 +27,7 @@ export default function SetupPage() {
           <Card key={f} className="px-4 py-3">
             <Label>{f}</Label>
             <div className="relative">
-              <input value={t.metadata[f] || ""} onChange={(e) => set(f, e.target.value)} placeholder="—" type={f === "Submission deadline" ? "date" : "text"} className="mt-1 w-full bg-transparent text-[13px] text-app-accent outline-none placeholder:text-app-dim" />
+              <input value={value(f)} onChange={(e) => set(f, e.target.value)} placeholder="—" type={f === "Submission deadline" ? "date" : "text"} className="mt-1 w-full bg-transparent text-[13px] text-app-accent outline-none placeholder:text-app-dim" />
               {f === "Submission deadline" && <Calendar size={12} className="pointer-events-none absolute right-0 top-2 text-app-muted" />}
             </div>
           </Card>

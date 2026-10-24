@@ -104,13 +104,6 @@ export const milestones: T.Milestone[] = [
   { id: "m5", name: "Pre-commissioning & handover", pct: 15, date: "2029-10-30" },
 ];
 
-export const competitors: T.Competitor[] = [
-  { id: "cp1", name: "Subsea 7", capability: 5, pricing: 3, track: 5, vessels: ["Seven Borealis", "Seven Vega"], note: "Incumbent on adjacent field; strong local content story." },
-  { id: "cp2", name: "TechnipFMC", capability: 5, pricing: 2, track: 4, vessels: ["Deep Energy", "Deep Blue"], note: "Integrated iEPCI offer likely; premium pricing." },
-  { id: "cp3", name: "Saipem", capability: 4, pricing: 4, track: 3, vessels: ["Castorone", "FDS2"], note: "Aggressive pricing recently in Atlantic Canada." },
-  { id: "cp4", name: "McDermott", capability: 3, pricing: 4, track: 3, vessels: ["North Ocean 105"], note: "Limited cold-water track record." },
-];
-
 export const lessons: T.Lesson[] = [
   { id: "l1", tender: "Terra Nova Phase 2", outcome: "Won", lesson: "Early vendor lock on flexible pipe capacity secured a 4-month schedule advantage over competitors.", date: "2024-11-10" },
   { id: "l2", tender: "Hebron Tieback", outcome: "Lost", lesson: "Pricing was 9% above winner; contingency stacked at both line and project level. Apply contingency once.", date: "2023-08-02" },

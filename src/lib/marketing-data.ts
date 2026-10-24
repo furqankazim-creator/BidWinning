@@ -43,7 +43,7 @@ export const landingIndustries = [
 export const plans = [
   { name: "Starter", price: 199, popular: false, features: ["1 user", "2 active tender workspaces", "1 industry template", "1,000 AI credits per month", "CRM, requirements, compliance, Go/No-Go", "Clarifications, qualifications, risk register", "Word & Excel exports", "Email support"] },
   { name: "Team", price: 499, popular: true, features: ["Up to 5 users", "5 active tender workspaces", "All industry templates", "5,000 AI credits per month", "Engineering, procurement, costing & pricing", "Proposals, reviews & approvals", "Priority email support"] },
-  { name: "Enterprise", price: 1499, popular: false, features: ["Up to 15 users", "Unlimited tender workspaces", "Custom industry templates & workflows", "20,000 AI credits per month", "Competitor & price-to-win analytics", "Contracts & projects (ERP)", "WhatsApp / email intake automation", "SSO, audit export, dedicated account manager"] },
+  { name: "Enterprise", price: 1499, popular: false, features: ["Up to 15 users", "Unlimited tender workspaces", "Custom industry templates & workflows", "20,000 AI credits per month", "Contracts & projects (ERP)", "WhatsApp / email intake automation", "SSO, audit export, dedicated account manager"] },
 ];
 
 export const faq = [

@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 
 export async function connectDb() {
   const uri = process.env.MONGODB_URI;
+  if (process.env.NODE_ENV === "production" && !uri) throw new Error("MONGODB_URI must be set in production (the in-memory database loses all data on restart)");
   const useMemory = process.env.USE_MEMORY_DB === "1" || !uri;
   if (useMemory) {
     if (!uri) console.warn("[db] MONGODB_URI is not set — starting an in-memory MongoDB for local development. Data is lost when the server stops. Set MONGODB_URI in server/.env (see .env.example) for persistence.");

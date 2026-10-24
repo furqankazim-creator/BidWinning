@@ -1,12 +1,12 @@
 // Single place to rename the product. Everything else reads from here.
 export const brand = {
-  company: "VendorIQ",
+  company: "BidWinning",
   tagline: "AI-POWERED TENDER & BID INTELLIGENCE",
-  product: "VendorIQ Platform",
+  product: "BidWinning Platform",
   workspace: "Tender Workspace",
-  crm: "VendorIQ CRM",
+  crm: "BidWinning CRM",
   reports: "Market Intelligence Briefs",
-  handle: "@vendoriq",
-  email: "hello@vendoriq.app",
-  logoLetter: "V",
+  handle: "@bidwinning",
+  email: "hello@bidwinning.app",
+  logoLetter: "B",
 };

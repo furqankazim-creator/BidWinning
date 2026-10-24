@@ -9,10 +9,12 @@ import { useScopedStore } from "@/store/useStore";
 import { buildNav, type NavItem } from "./nav";
 import { agents } from "@/store/seed";
 import { useUI } from "./ui-state";
+import { useI18n } from "@/lib/i18n";
 
 export function Sidebar() {
   const pathname = usePathname();
   const { collapsed, setCollapsed, setPalette, setSettings, mode, setMode, agent, setAgent } = useUI();
+  const { t } = useI18n();
   const { tenders, activeTenderId, setActiveTender, clarifications, clauses, deliverables, inquiries, approvals, reviews } = useScopedStore();
   const counts = { clarifications: clarifications.filter((c) => c.pending || c.status === "Draft").length, contract: clauses.filter((c) => c.pending || c.status === "Pending").length + 1, deliverables: deliverables.length, inquiries: inquiries.filter((i) => i.status === "New").length, approvals: approvals.filter((a) => a.status === "Pending").length, reviews: reviews.filter((r) => r.tenderId === activeTenderId && r.status === "Pending").length };
   const groups = buildNav(activeTenderId);
@@ -23,17 +25,17 @@ export function Sidebar() {
       {/* Workspace / Chat switch */}
       <div className="p-3">
         <div className="flex rounded border border-app-border bg-app-panel p-1">
-          <button onClick={() => setMode("workspace")} className={cn("flex flex-1 items-center justify-center gap-2 rounded-sm py-1.5 text-xs", mode === "workspace" ? "bg-app-panel-2 text-app-text" : "text-app-muted hover:text-app-text")}><LayoutPanelLeft size={13} />{!collapsed && "Workspace"}</button>
-          <button onClick={() => setMode("chat")} className={cn("flex flex-1 items-center justify-center gap-2 rounded-sm py-1.5 text-xs", mode === "chat" ? "bg-app-panel-2 text-app-text" : "text-app-muted hover:text-app-text")}><MessageCircle size={13} />{!collapsed && "Chat"}</button>
+          <button onClick={() => setMode("workspace")} className={cn("flex flex-1 items-center justify-center gap-2 rounded-sm py-1.5 text-xs", mode === "workspace" ? "bg-app-panel-2 text-app-text font-medium" : "text-app-muted hover:text-app-text")}><LayoutPanelLeft size={13} />{!collapsed && t("Workspace")}</button>
+          <button onClick={() => setMode("chat")} className={cn("flex flex-1 items-center justify-center gap-2 rounded-sm py-1.5 text-xs", mode === "chat" ? "bg-app-panel-2 text-app-text font-medium" : "text-app-muted hover:text-app-text")}><MessageCircle size={13} />{!collapsed && t("Chat")}</button>
         </div>
       </div>
 
       {mode === "chat" ? (
         <div className="app-scroll flex-1 overflow-y-auto px-3">
-          <p className="mb-2 font-mono text-[10px] uppercase tracking-[0.14em] text-app-dim">Conversations</p>
+          <p className="mb-2 font-mono text-[10px] uppercase tracking-[0.14em] text-app-dim">{t("Conversations")}</p>
           <p className="mb-3 truncate text-xs text-app-muted">{tenders.find((t) => t.id === activeTenderId)?.name}</p>
           {agents.map((a) => (
-            <button key={a.id} onClick={() => setAgent(a.id)} className={cn("mb-1 flex w-full items-start gap-2 rounded px-2 py-2 text-left", agent === a.id ? "bg-app-panel-2" : "hover:bg-app-panel")}>
+            <button key={a.id} onClick={() => setAgent(a.id)} className={cn("mb-1 flex w-full items-start gap-2 rounded px-2 py-2 text-left rtl:text-right", agent === a.id ? "bg-app-panel-2" : "hover:bg-app-panel")}>
               <span className="text-lg leading-5">{a.emoji}</span>
               {!collapsed && <span><span className={cn("block text-[13px]", agent === a.id ? "text-app-accent" : "text-app-text")}>{a.name}</span><span className="block text-[11px] text-app-dim">{a.sub}</span></span>}
             </button>
@@ -52,15 +54,15 @@ export function Sidebar() {
           {!collapsed && (
             <div className="space-y-2 px-3 py-2">
               <button onClick={() => setPalette(true)} className="flex w-full items-center justify-between rounded border border-app-border bg-app-panel px-3 py-2 text-xs text-app-muted hover:border-app-border-2">
-                <span className="flex items-center gap-2"><Plus size={13} /> Create or find</span>
-                <kbd className="rounded border border-app-border px-1 font-mono text-[10px]">Ctrl K</kbd>
+                <span className="flex items-center gap-2"><Plus size={13} /> {t("Create or find")}</span>
+                <kbd className="rounded border border-app-border px-1 font-mono text-[10px]">{t("Ctrl K")}</kbd>
               </button>
               <div className="relative">
-                <select value={activeTenderId} onChange={(e) => setActiveTender(e.target.value)} className="w-full appearance-none rounded border border-app-border bg-app-panel px-3 py-2 pr-8 text-xs font-semibold text-app-text outline-none">
+                <select value={activeTenderId} onChange={(e) => setActiveTender(e.target.value)} className="w-full appearance-none rounded border border-app-border bg-app-panel px-3 py-2 pr-8 rtl:pr-3 rtl:pl-8 text-xs font-semibold text-app-text outline-none">
                   {tenders.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
-                  {tenders.length === 0 && <option value="">No tender</option>}
+                  {tenders.length === 0 && <option value="">{t("No tender")}</option>}
                 </select>
-                <ChevronDown size={13} className="pointer-events-none absolute right-2.5 top-2.5 text-app-muted" />
+                <ChevronDown size={13} className="pointer-events-none absolute right-2.5 rtl:right-auto rtl:left-2.5 top-2.5 text-app-muted" />
               </div>
             </div>
           )}
@@ -68,8 +70,8 @@ export function Sidebar() {
           <nav className="app-scroll flex-1 overflow-y-auto px-3 pb-3">
             {groups.map((g, gi) => (
               <div key={g.label || gi}>
-                {!collapsed && g.label && <p className="mb-1 mt-5 truncate px-2 font-mono text-[10px] uppercase tracking-[0.16em] text-app-dim" title={g.label === "Active Workspace" ? activeTender?.name : undefined}>{g.label === "Active Workspace" && activeTender ? `Workspace · ${activeTender.reference || activeTender.name}` : g.label}</p>}
-                <div className="space-y-0.5">{g.items.map((n) => <NavRow key={n.href} item={n} pathname={pathname} collapsed={collapsed} count={n.countKey ? counts[n.countKey] : undefined} />)}</div>
+                {!collapsed && g.label && <p className="mb-1 mt-5 truncate px-2 font-mono text-[10px] uppercase tracking-[0.16em] text-app-dim" title={g.label === "Active Workspace" ? activeTender?.name : undefined}>{g.label === "Active Workspace" && activeTender ? `${t("Workspace")} · ${activeTender.reference || activeTender.name}` : t(g.label)}</p>}
+                <div className="space-y-0.5">{g.items.map((n) => <NavRow key={n.href} item={n} pathname={pathname} collapsed={collapsed} count={n.countKey ? counts[n.countKey] : undefined} t={t} />)}</div>
               </div>
             ))}
           </nav>
@@ -77,35 +79,37 @@ export function Sidebar() {
       )}
 
       <button onClick={() => setSettings(true)} className="flex items-center justify-between border-t border-app-border px-4 py-3 text-[13px] text-app-text hover:bg-app-panel">
-        <span className="flex items-center gap-3"><Settings size={15} className="text-app-muted" />{!collapsed && "Settings"}</span>
-        {!collapsed && <ChevronRight size={13} className="text-app-dim" />}
+        <span className="flex items-center gap-3"><Settings size={15} className="text-app-muted" />{!collapsed && t("Settings")}</span>
+        {!collapsed && <ChevronRight size={13} className="text-app-dim rtl:rotate-180" />}
       </button>
     </aside>
   );
 }
 
-function NavRow({ item, pathname, collapsed, count }: { item: NavItem; pathname: string; collapsed: boolean; count?: number }) {
+function NavRow({ item, pathname, collapsed, count, t }: { item: NavItem; pathname: string; collapsed: boolean; count?: number; t: (k: string, d?: string) => string }) {
   const active = item.href === "/app" ? pathname === "/app" : /\/app\/tenders\/[^/]+$/.test(item.href) ? pathname === item.href : pathname.startsWith(item.href) && !(item.href === "/app/tenders" && /\/app\/tenders\/./.test(pathname));
   const [open, setOpen] = useState(false);
   const Icon = item.icon;
+  const label = t(item.label, item.label);
   return (
     <div>
       <div className={cn("group flex items-center rounded", active && !item.children ? "bg-app-panel-2" : "hover:bg-app-panel")}>
-        <Link href={item.href} className={cn("flex flex-1 items-center gap-3 px-2 py-1.5 text-[13px]", active ? "text-app-text" : "text-app-text/85")} title={item.label}>
+        <Link href={item.href} className={cn("flex flex-1 items-center gap-3 px-2 py-1.5 text-[13px]", active ? "text-app-text font-medium" : "text-app-text/85")} title={label}>
           {Icon && <Icon size={15} className={cn(active ? "text-app-accent" : "text-app-muted")} />}
-          {!collapsed && <span className="truncate">{item.label}</span>}
+          {!collapsed && <span className="truncate">{label}</span>}
         </Link>
         {!collapsed && !!count && <span className="rounded-sm border border-app-accent/40 px-1 font-mono text-[10px] text-app-accent">{count}</span>}
-        {!collapsed && item.children && <button onClick={() => setOpen(!open)} className="px-2 py-1.5 text-app-dim hover:text-app-text">{open ? <ChevronDown size={13} /> : <ChevronRight size={13} />}</button>}
+        {!collapsed && item.children && <button onClick={() => setOpen(!open)} className="px-2 py-1.5 text-app-dim hover:text-app-text">{open ? <ChevronDown size={13} /> : <ChevronRight size={13} className="rtl:rotate-180" />}</button>}
       </div>
       {!collapsed && item.children && open && (
-        <div className="ml-[15px] border-l border-app-border">
+        <div className="ml-[15px] rtl:ml-0 rtl:mr-[15px] border-l rtl:border-l-0 rtl:border-r border-app-border">
           {item.children.map((c) => {
             const a = pathname === c.href;
+            const childLabel = t(c.label, c.label);
             return (
-              <Link key={c.href} href={c.href} className={cn("relative ml-3 flex items-center gap-2 py-1.5 pl-3 text-[13px]", a ? "text-app-accent" : "text-app-muted hover:text-app-text")}>
-                <span className={cn("absolute -left-[19px] h-1.5 w-1.5 rounded-full", a ? "bg-app-accent" : "bg-app-border-2")} />
-                {c.label}
+              <Link key={c.href} href={c.href} className={cn("relative ml-3 rtl:ml-0 rtl:mr-3 flex items-center gap-2 py-1.5 pl-3 rtl:pl-0 rtl:pr-3 text-[13px]", a ? "text-app-accent font-medium" : "text-app-muted hover:text-app-text")}>
+                <span className={cn("absolute -left-[19px] rtl:-left-auto rtl:-right-[19px] h-1.5 w-1.5 rounded-full", a ? "bg-app-accent" : "bg-app-border-2")} />
+                {childLabel}
               </Link>
             );
           })}

@@ -1,5 +1,5 @@
 "use client";
-/** Thin client for the VendorIQ Express API. When NEXT_PUBLIC_API_URL is unset the app runs in local demo mode. */
+/** Thin client for the BidWinning Express API. When NEXT_PUBLIC_API_URL is unset the app runs in local demo mode. */
 export const API_URL = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/$/, "");
 export const apiEnabled = () => !!API_URL;
 

@@ -16,13 +16,16 @@ export function CommandPalette() {
   const industries = useIndustries();
   const [q, setQ] = useState("");
   const [creating, setCreating] = useState(false);
-  const [form, setForm] = useState({ name: "", client: "", closing: "", description: "", industry: "other", tenderType: "Tender", reference: "" });
+  const blank = { name: "", client: "", closing: "", description: "", industry: "other", tenderType: "Tender", reference: "", value: "" };
+  const [form, setForm] = useState(blank);
+  const today = new Date().toISOString().slice(0, 10);
+  const matchedCompany = companies.find((c) => c.name.trim().toLowerCase() === form.client.trim().toLowerCase());
 
   useEffect(() => {
     const h = (e: KeyboardEvent) => { if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") { e.preventDefault(); setPalette(true); } };
     window.addEventListener("keydown", h); return () => window.removeEventListener("keydown", h);
   }, [setPalette]);
-  useEffect(() => { if (!palette) { setQ(""); setCreating(false); } }, [palette]);
+  useEffect(() => { if (!palette) { setQ(""); setCreating(false); setForm(blank); } }, [palette]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const results = useMemo(() => {
     const s = q.toLowerCase();
@@ -43,18 +46,19 @@ export function CommandPalette() {
   return (
     <Modal open={palette} onClose={() => setPalette(false)} wide={creating}>
       {creating ? (
-        <form className="space-y-3" onSubmit={(e) => { e.preventDefault(); const id = addTender(form); setPalette(false); router.push(`/app/tenders/${id}`); }}>
+        <form className="space-y-3" onSubmit={(e) => { e.preventDefault(); const id = addTender({ ...form, value: Number(form.value) || 0 }); setPalette(false); router.push(`/app/tenders/${id}`); }}>
           <p className="font-sans text-sm font-semibold text-app-accent">Create a tender</p>
           <Field label="Tender name"><Input required autoFocus className="w-full" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g. Bay du Nord Flowlines EPCI" /></Field>
           <div className="grid gap-3 sm:grid-cols-2">
-            <Field label="Client"><Input className="w-full" value={form.client} onChange={(e) => setForm({ ...form, client: e.target.value })} /></Field>
-            <Field label="Submission deadline"><Input type="date" className="w-full" value={form.closing} onChange={(e) => setForm({ ...form, closing: e.target.value })} /></Field>
+            <Field label="Client"><Input className="w-full" list="vq-company-names" value={form.client} onChange={(e) => setForm({ ...form, client: e.target.value })} placeholder="Start typing a company…" /><datalist id="vq-company-names">{companies.map((c) => <option key={c.id} value={c.name} />)}</datalist>{form.client.trim() && <p className="mt-1 text-[11px] text-app-dim">{matchedCompany ? `Linked to CRM company: ${matchedCompany.name}` : "Not in Companies — tender will not be linked to a CRM account"}</p>}</Field>
+            <Field label="Submission deadline"><Input type="date" min={today} className="w-full" value={form.closing} onChange={(e) => setForm({ ...form, closing: e.target.value })} /></Field>
           </div>
           <div className="grid gap-3 sm:grid-cols-3">
             <Field label="Industry"><select className="w-full rounded-sm border border-app-border-2 bg-app-bg px-2.5 py-1.5 font-sans text-[13px] text-app-text" value={form.industry} onChange={(e) => setForm({ ...form, industry: e.target.value })}>{industries.map((i) => <option key={i.id} value={i.id}>{i.name}</option>)}</select></Field>
             <Field label="Tender type"><select className="w-full rounded-sm border border-app-border-2 bg-app-bg px-2.5 py-1.5 font-sans text-[13px] text-app-text" value={form.tenderType} onChange={(e) => setForm({ ...form, tenderType: e.target.value })}>{tenderTypes.map((x) => <option key={x}>{x}</option>)}</select></Field>
             <Field label="Reference"><Input className="w-full" value={form.reference} onChange={(e) => setForm({ ...form, reference: e.target.value })} /></Field>
           </div>
+          <Field label="Estimated value"><Input type="number" min={0} step="any" className="w-full" value={form.value} onChange={(e) => setForm({ ...form, value: e.target.value })} placeholder="0" /></Field>
           <Field label="Scope"><Input className="w-full" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} /></Field>
           <div className="flex justify-end gap-2"><Button type="button" variant="outline" onClick={() => setCreating(false)}>Back</Button><Button variant="primary">Create workspace</Button></div>
         </form>

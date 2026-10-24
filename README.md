@@ -1,4 +1,4 @@
-# VendorIQ — AI-Powered Multi-Industry Tender, Bid & Procurement Intelligence Platform
+# BidWinning — AI-Powered Multi-Industry Tender, Bid & Procurement Intelligence Platform
 
 CRM + Tender Intelligence + AI Document Intelligence + Compliance + Bid Qualification + Risk + Engineering + Procurement + Costing + Pricing + Proposals + Submission + Competitor Intelligence + Project ERP.
 
@@ -64,10 +64,19 @@ NEXT_PUBLIC_API_URL=http://localhost:4000 npm run dev
 npm run api:test     # 17-check API smoke test
 ```
 
-## Real document analysis
-`POST /api/analyze` (`src/app/api/analyze/route.ts`) extracts text server-side from PDF (`pdf-parse`), DOCX (`mammoth`) or text files, then asks the LLM (Anthropic → Groq fallback, `src/lib/server/llm.ts`) for strict JSON: general info, executive summary, cited requirements (page/section/clause), contract-term review, clause positions, clarifications, risks, compliance items, deliverables, quantities and a reasoned Go/No-Go recommendation. `runTenderAnalysis()` in the store writes everything as AI-pending into the registers. Uploads in Documents are indexed on the spot; "Analyze" runs per-document extraction.
+## Verified document analysis
+Upload → **Analyze** runs a 7-step pipeline (`src/lib/server/verified/`) in which code, not the AI, guarantees authenticity:
+1. **Extraction** — PDF text layer (`unpdf`) **plus an OCR cross-check** (tesseract, fully offline, hosted in the Express API at `/api/ocr/pdf`) because many PDFs silently drop bold/outlined text and scanned pages. OCR-derived lines are marked; pages OCR cannot read reliably (drawings, rotated sheets) are reported as *unreadable*, never guessed. Repeated title blocks are removed.
+2. **Structure & requirements** — pages → numbered clauses → every “shall/must” sentence kept **verbatim with page and clause**; duplicates merged.
+3. **Library check (no AI)** — every cited standard (SAES/SAEP/SAMSS/SAEHC/GI/NFPA/ASCE…) is looked up in the local LanceDB library (newest revision wins, project documents are never rules); typos, edition conflicts, TOC/body mismatches, un-listed standards and missing project documents are reported.
+4. **Retrieval** — hybrid (vector + keyword + direct citation) over the standards folder, with cover/contents pages filtered out.
+5. **AI judgement** — the model sees only the retrieved rule sentences and answers *Conforms / Conflicts / Not covered* by **pointing at a rule and sentence number**; the quotation is supplied by code.
+6. **Automatic verification** — every AI quote must exist on its source page, every rule id is re-read from the database and checked for active revision; failures are downgraded or dropped. An AI step that fails is reported as a failure and never turned into a verdict.
+7. **Human approval → report** — findings wait for approve/reject; the PDF/Excel are assembled from those records with the library version, model and prompt stamped. AI *general knowledge* of standards/laws is shown in a separate, clearly labelled, unverified tier.
 
-Demo tender **t5 — Smart Water Meters, Dhahran Community (Saudi Aramco GSC 8142331)** ships with the real SOW text indexed and a human-verified review (31 requirements, 10 clarifications, 5 clause positions, 10 risks, 12 compliance items, CONDITIONAL GO).
+**Report Score** (0–100, `src/lib/reportScore.ts`) rates the *report* (coverage 25 · verification integrity 25 · library grounding 20 · human review 20 · completeness 10); **Tender Health** rates the *bid's readiness* and now includes report-derived factors (pages actually read, library conformance). Exports: PDF (print) with full requirements/compliance/standards registers, and Excel (`/api/report/xlsx`, 11 sheets).
+
+Groq free tier: limits are per model per minute **and per day** (≈200k tokens/day on `gpt-oss-120b`). The client fails over across keys and models (`GROQ_FALLBACK_MODELS`, default `openai/gpt-oss-20b`); the models actually used are stamped on the report. Tests: `npm run test:verified`.
 
 ## Agent chat (Claude API)
 Chat mode talks to specialist agents grounded in the active tender's data. `POST /api/chat` (`src/app/api/chat/route.ts`) streams a reply from `claude-opus-5` via the official `@anthropic-ai/sdk`, with the workspace snapshot as cached system context and persona rules (cite sources, never fabricate, drafts need human acceptance). Providers (first configured wins): `ANTHROPIC_API_KEY` → Claude via the official SDK; else Groq (`GROQ_API_KEYS=key1,key2,…` pool or single `GROQ_API_KEY`; optional `GROQ_MODEL`, default `openai/gpt-oss-120b`). The Groq pool fails over automatically: a key that returns 429 (rate limit/quota) is skipped for 60 s (or `Retry-After`), a rejected key (401/403) for 1 h. `GET /api/ai-status` shows the active provider and key-pool health. Put keys in `.env.local` (gitignored; see `.env.example`). With neither, the UI shows a clearly labelled offline summary. Every reply is logged in AI Governance.

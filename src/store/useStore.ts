@@ -16,7 +16,7 @@ interface State {
   actions: T.ActionItem[]; projects: T.Project[]; vendors: T.Vendor[]; docs: T.Doc[];
   clarifications: T.Clarification[]; clauses: T.Clause[]; qualifications: T.Qualification[];
   risks: T.Risk[]; deliverables: T.Deliverable[]; costLines: T.CostLine[]; milestones: T.Milestone[];
-  competitors: T.Competitor[]; lessons: T.Lesson[]; chat: T.ChatMsg[]; profile: T.Profile;
+  lessons: T.Lesson[]; chat: T.ChatMsg[]; profile: T.Profile;
   margin: number; lastExtraction: string;
   industryFilter: string; setIndustryFilter: (id: string) => void;
   org: T.Org; users: T.User[]; currentUser: string;
@@ -57,7 +57,8 @@ interface State {
   deleteTender: (id: string) => void;
   convertToProject: (tenderId: string) => void;
 
-  addAction: (title: string, agent: string) => void;
+  addAction: (title: string, agent: string, extra?: Partial<T.ActionItem>) => void;
+  updateAction: (id: string, patch: Partial<T.ActionItem>) => void;
   moveAction: (id: string, status: T.ActionStatus) => void;
   deleteAction: (id: string) => void;
 
@@ -76,8 +77,10 @@ interface State {
   deleteDoc: (id: string) => void; updateDoc: (id: string, p: Partial<T.Doc>) => void;
   uploadDocs: (files: File[]) => Promise<void>;
   analyzeDocument: (id: string) => Promise<string | null>;
-  runTenderAnalysis: (tenderId: string) => Promise<string | null>;
+  runTenderAnalysis: (tenderId: string, depth?: "standard" | "deep") => Promise<string | null>;
   analysisBusy: boolean;
+  analysisProgress: { pct: number; stage: string; msg: string } | null;
+  reviewFinding: (tenderId: string, findingId: string, decision: "Approved" | "Rejected" | null, note?: string) => void;
   runExtraction: () => void;
 
   updateClarification: (id: string, patch: Partial<T.Clarification>) => void;
@@ -97,7 +100,6 @@ interface State {
   updateDeliverable: (id: string, patch: Partial<T.Deliverable>) => void; addDeliverable: (name: string, type: T.Deliverable["type"]) => void; deleteDeliverable: (id: string) => void;
   updateCostLine: (id: string, patch: Partial<T.CostLine>) => void; addCostLine: () => void; deleteCostLine: (id: string) => void; setMargin: (m: number) => void;
   updateMilestone: (id: string, patch: Partial<T.Milestone>) => void; addMilestone: () => void; deleteMilestone: (id: string) => void;
-  updateCompetitor: (id: string, patch: Partial<T.Competitor>) => void; addCompetitor: (name: string) => void; deleteCompetitor: (id: string) => void;
   addLesson: (l: Omit<T.Lesson, "id">) => void; deleteLesson: (id: string) => void;
   sendChat: (agent: string, text: string) => void; clearChat: (agent: string) => void; chatBusy: boolean;
   updateProfile: (p: Partial<T.Profile>) => void;
@@ -107,7 +109,7 @@ interface State {
 const initial = () => ({
   tenders: [...seed.tenders, seed3.tender4, seed4.tender], activeTenderId: "t5", actions: [...seed.actions, ...seed3.actions, ...seed4.actions, ...seed4.meetingActions], projects: seed3.projects, vendors: seed.vendors, docs: [...seed.docs, ...seed3.docs, seed4.doc, seed4.meetingDoc],
   clarifications: [...seed.clarifications, ...seed3.clarifications, ...seed4.clarifications, ...seed4.meetingClarifications], clauses: [...seed.clauses, ...seed3.clauses, ...seed4.clauses], qualifications: [...seed.qualifications, ...seed3.qualifications, ...seed4.qualifications], risks: [...seed.risks, ...seed3.risks, ...seed4.risks], deliverables: [...seed.deliverables, ...seed3.deliverables, ...seed4.deliverables, ...seed4.meetingDeliverables],
-  costLines: [...seed.costLines, ...seed3.costLines, ...seed4.costLines], milestones: [...seed.milestones, ...seed3.milestones], competitors: [...seed.competitors, ...seed3.competitors], lessons: [...seed3.lessons, ...seed.lessons], procPackages: [...seed.procPackages, ...seed3.procPackages, ...seed4.procPackages], quotations: [...seed.quotations, ...seed3.quotations], submissions: seed3.submissions, chat: [] as T.ChatMsg[], chatBusy: false, analysisBusy: false,
+  costLines: [...seed.costLines, ...seed3.costLines, ...seed4.costLines], milestones: [...seed.milestones, ...seed3.milestones], lessons: [...seed3.lessons, ...seed.lessons], procPackages: [...seed.procPackages, ...seed3.procPackages, ...seed4.procPackages], quotations: [...seed.quotations, ...seed3.quotations], submissions: seed3.submissions, chat: [] as T.ChatMsg[], chatBusy: false, analysisBusy: false, analysisProgress: null as { pct: number; stage: string; msg: string } | null,
   profile: { name: "Jordan Reyes", email: "j.reyes@northstar.example", model: "Lite" as const }, margin: 12, lastExtraction: new Date("2026-09-16T14:33:18").toISOString(),
   industryFilter: "all", org: seed2.org, users: seed2.users, currentUser: "Jordan Reyes",
   companies: [...seed2.companies, seed4.company], contacts: [...seed2.contacts, seed4.contact], opportunities: [...seed2.opportunities, seed4.opportunity], activities: [...seed4.meetingActivities, ...seed4.activities, ...seed2.activities],
@@ -116,6 +118,27 @@ const initial = () => ({
   inquiries: seed2.inquiries, contracts: seed3.contracts, auditLog: [...seed4.meetingAudit, ...seed2.auditLog], aiLog: [...seed4.aiLog, ...seed2.aiLog], notifications: [seed4.meetingNotification, ...seed4.notifications, ...seed2.notifications], customIndustries: [],
 });
 
+const alnumKey = (t: string) => t.toLowerCase().replace(/[^a-z0-9]+/g, "");
+
+/** Reads a newline-delimited JSON response: forwards progress events, resolves with the final result, throws on an error event. */
+async function readNdjson<R>(res: Response, onEvent: (e: { type: string; pct?: number; stage?: string; msg?: string; done?: number; total?: number }) => void): Promise<R> {
+  if (!res.ok && !(res.headers.get("content-type") || "").includes("ndjson")) { const j = await res.json().catch(() => ({})); throw new Error(j.error || `HTTP ${res.status}`); }
+  if (!res.body) throw new Error("empty response");
+  const reader = res.body.getReader(); const dec = new TextDecoder(); let buf = ""; let result: R | null = null;
+  for (;;) {
+    const { value, done } = await reader.read(); if (done) break;
+    buf += dec.decode(value, { stream: true });
+    let i: number;
+    while ((i = buf.indexOf("\n")) >= 0) {
+      const line = buf.slice(0, i); buf = buf.slice(i + 1); if (!line.trim()) continue;
+      const o = JSON.parse(line);
+      if (o.type === "error") throw new Error(o.error || "failed");
+      if (o.type === "result") result = o as R; else if (o.type !== "ping") onEvent(o);
+    }
+  }
+  if (!result) throw new Error("The server closed the connection before finishing (restart the dev server and try again).");
+  return result;
+}
 const patchIn = <X extends { id: string }>(arr: X[], id: string, patch: Partial<X>) => arr.map((x) => (x.id === id ? { ...x, ...patch } : x));
 
 export const useStore = create<State>()(
@@ -125,7 +148,10 @@ export const useStore = create<State>()(
       setActiveTender: (id) => set({ activeTenderId: id }),
       addTender: (t) => {
         const id = uid();
-        set((s) => ({ tenders: [...s.tenders, { id, name: t.name, reference: t.reference || "", client: t.client || "", companyId: t.companyId, opportunityId: t.opportunityId, description: t.description || "", value: t.value || 0, currency: t.currency || s.org.currency, closing: t.closing || "", progress: 0, status: "Active Campaign", stage: "Analysis", industry: t.industry || "other", service: t.service || "", tenderType: t.tenderType || "Tender", region: t.region || "Global", owner: t.owner || s.currentUser, goNoGo: "Pending", goNoGoScores: {}, scope: t.scope || "Full scope", clientTerm: "Client", bidder: "Sole bidder", metadata: {}, createdAt: new Date().toISOString() }], activeTenderId: id }));
+        // Link the client to its CRM company when the name matches one, so company history, contacts and win/loss connect.
+        const client = (t.client || "").trim();
+        const companyId = t.companyId || (client ? get().companies.find((c) => c.name.trim().toLowerCase() === client.toLowerCase())?.id : undefined);
+        set((s) => ({ tenders: [...s.tenders, { id, name: t.name, reference: t.reference || "", client, companyId, opportunityId: t.opportunityId, description: t.description || "", value: t.value || 0, currency: t.currency || s.org.currency, closing: t.closing || "", progress: 0, status: "Active Campaign", stage: "Analysis", industry: t.industry || "other", service: t.service || "", tenderType: t.tenderType || "Tender", region: t.region || "Global", owner: t.owner || s.currentUser, goNoGo: "Pending", goNoGoScores: {}, scope: t.scope || "Full scope", clientTerm: "Client", bidder: "Sole bidder", metadata: {}, createdAt: new Date().toISOString() }], activeTenderId: id }));
         get().audit("Created", "Tender", id, t.name);
         return id;
       },
@@ -136,8 +162,9 @@ export const useStore = create<State>()(
         return { projects: [...s.projects, { id: uid(), name: t.name, tenderId, contractId: s.contracts.find((c) => c.tenderId === tenderId)?.id, createdAt: new Date().toISOString(), status: "Mobilising" as const, progress: 0 }] };
       }),
 
-      addAction: (title, agent) => set((s) => ({ actions: [...s.actions, { id: uid(), tenderId: s.activeTenderId, title, agent, status: "backlog", createdAt: new Date().toISOString() }] })),
-      moveAction: (id, status) => set((s) => ({ actions: patchIn(s.actions, id, { status }) })),
+      addAction: (title, agent, extra) => set((s) => ({ actions: [...s.actions, { id: uid(), tenderId: s.activeTenderId, title, agent, status: "backlog", createdAt: new Date().toISOString(), ...extra }] })),
+      updateAction: (id, patch) => set((s) => ({ actions: patchIn(s.actions, id, patch) })),
+      moveAction: (id, status) => set((s) => ({ actions: patchIn(s.actions, id, { status, completedAt: status === "complete" ? new Date().toISOString() : undefined }) })),
       deleteAction: (id) => set((s) => ({ actions: s.actions.filter((a) => a.id !== id) })),
 
       addVendor: (v) => set((s) => ({ vendors: [...s.vendors, { ...v, id: uid(), ratings: [] }] })),
@@ -166,17 +193,17 @@ export const useStore = create<State>()(
       uploadDocs: async (files) => {
         const tid = get().activeTenderId;
         for (const f of files) {
+          if (f.name.startsWith(".") || f.size === 0) continue; // folder uploads include .DS_Store and other hidden/empty files
           const id = uid();
-          set((s) => ({ docs: [...s.docs, { id, tenderId: tid, name: f.name, size: f.size, rev: 0, kind: guessKind(f.name), status: "PROCESSING", uploadedAt: new Date().toISOString(), uploadedBy: s.currentUser, language: "English", confidentiality: "Internal" }] }));
+          set((s) => ({ docs: [...s.docs, { id, tenderId: tid, name: f.name, size: f.size, rev: 0, kind: guessKind(f.name), status: "PROCESSING", uploadedAt: new Date().toISOString(), uploadedBy: s.currentUser, language: "English", confidentiality: "Internal", progress: "Reading…" }] }));
           try {
             const fd = new FormData(); fd.append("file", f); fd.append("mode", "extract");
             const res = await fetch("/api/analyze", { method: "POST", body: fd });
-            const j = await res.json();
-            if (!res.ok) throw new Error(j.error || `HTTP ${res.status}`);
-            set((s) => ({ docs: patchIn(s.docs, id, { status: "INDEXED", text: String(j.text || "").slice(0, 200_000), pages: j.pages }) }));
-            get().audit("Uploaded", "Document", id, `${f.name} · ${j.pages} page(s)`);
+            const j = await readNdjson<{ text: string; pages: number; ocr?: T.Doc["ocr"] }>(res, (e) => set((s) => ({ docs: patchIn(s.docs, id, { progress: e.stage === "ocr" ? `OCR ${e.done ?? 0}/${e.total ?? "?"}` : e.stage === "merge" ? "Merging OCR…" : "Reading text layer…" }) })));
+            set((s) => ({ docs: patchIn(s.docs, id, { status: "INDEXED", text: String(j.text || "").slice(0, 900_000), pages: j.pages, ocr: j.ocr, progress: undefined }) }));
+            get().audit("Uploaded", "Document", id, `${f.name} · ${j.pages} page(s)${j.ocr?.used ? ` · OCR recovered ${j.ocr.recoveredLines} line(s)` : ""}`);
           } catch (e) {
-            set((s) => ({ docs: patchIn(s.docs, id, { status: "FAILED", analysis: { Error: e instanceof Error ? e.message : "extraction failed" } }) }));
+            set((s) => ({ docs: patchIn(s.docs, id, { status: "FAILED", progress: undefined, analysis: { Error: e instanceof Error ? e.message : "extraction failed" } }) }));
           }
         }
       },
@@ -191,44 +218,52 @@ export const useStore = create<State>()(
           return null;
         } catch (e) { return e instanceof Error ? e.message : "analysis failed"; }
       },
-      /** Full AI review of a tender from its indexed documents: summary, requirements, clauses, clarifications, risks, compliance, deliverables, metadata. Everything lands as AI-pending for human review. */
-      runTenderAnalysis: async (tenderId) => {
+      /** Verified tender review (streams progress): every requirement is a checked quote, every cited standard is verified against the local library, and AI judgements are machine-checked. All findings land as AI-pending for human review. */
+      runTenderAnalysis: async (tenderId, depth = "standard") => {
         const s0 = get(); const t = s0.tenders.find((x) => x.id === tenderId); if (!t) return "Tender not found";
         const docs = scoped(s0.docs, tenderId).filter((d) => d.status === "INDEXED" && d.text);
         if (!docs.length) return "No indexed documents with text. Upload the ITT/RFP/SOW (PDF or DOCX) first.";
-        set({ analysisBusy: true });
+        set({ analysisBusy: true, analysisProgress: { pct: 0, stage: "start", msg: "Starting…" } });
         try {
           const text = docs.map((d) => `===== DOCUMENT: ${d.name} =====\n${d.text}`).join("\n\n");
           const context = { organisation: s0.org.name, capabilities: s0.capabilities.map((c) => `${c.name}: ${c.value}`), industryHint: t.industry, tenderName: t.name };
-          const res = await fetch("/api/analyze", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ mode: "tender", name: t.name, text, context }) });
-          const j = await res.json(); if (!res.ok) return j.error || `HTTP ${res.status}`;
-          const r = j.result as Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
+          const res = await fetch("/api/analyze", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ mode: "tender", name: t.name, text, context, depth }) });
+          const j = await readNdjson<{ result: Record<string, any>; provider: string; chars: number }>(res, (e) => set((st) => ({ analysisProgress: { pct: e.pct != null && e.pct >= 0 ? e.pct : st.analysisProgress?.pct ?? 0, stage: e.stage || "", msg: e.msg || "" } }))); // eslint-disable-line @typescript-eslint/no-explicit-any
+          const r = j.result; const report = r.report as T.VerifiedReport;
           const now = new Date().toISOString(); const src = docs[0].name;
           const g = r.general || {};
           const ns = (arr: unknown): string[] => (Array.isArray(arr) ? arr.map(String).filter(Boolean) : []);
           set((s) => {
             const nClar = scoped(s.clarifications, tenderId).length, nClause = scoped(s.clauses, tenderId).length, nRisk = scoped(s.risks, tenderId).length, nDel = scoped(s.deliverables, tenderId).length;
             const meta: Record<string, string> = { ...s.tenders.find((x) => x.id === tenderId)!.metadata };
-            const mm: [string, unknown][] = [["Client", g.client], ["Issuer", g.issuer], ["Project", g.project], ["Contract type", g.contractType], ["Pricing basis", g.pricingBasis], ["Submission deadline", g.submissionDeadline], ["Duration", g.duration], ["Location", g.location], ["Key dates", ns(g.keyDates).join("; ")]];
+            const mm: [string, unknown][] = [["Client", g.client], ["Issuer", g.issuer], ["Project", g.project], ["Contract type", g.contractType], ["Pricing basis", g.pricingBasis], ["Submission deadline", g.submissionDeadline], ["Duration", g.duration], ["Location", g.location]];
             mm.forEach(([k, v]) => { if (v && String(v) !== "not stated") meta[k] = String(v); });
             const dl = String(g.submissionDeadline || ""); const validDate = /^\d{4}-\d{2}-\d{2}$/.test(dl);
+            const keptReqs = s.requirements.filter((q) => !(q.tenderId === tenderId && q.ai && q.status === "Needs Verification"));
+            const have = new Set(keptReqs.filter((q) => q.tenderId === tenderId).map((q) => alnumKey(q.text)));
+            const newReqs = (r.requirements || []).filter((q: Record<string, unknown>) => !have.has(alnumKey(String(q.text)))).map((q: Record<string, any>) => ({ id: uid(), tenderId, text: String(q.text), category: String(q.category || "Other"), priority: (q.priority as T.Requirement["priority"]) || "Must", sourceDoc: String(q.doc || src), page: Number(q.page) || 0, section: String(q.section || ""), clause: String(q.clause || ""), evidence: "", status: "Needs Verification" as const, reviewer: "", comments: [q.finding && `Library check: ${q.finding}`, q.ocr && "Recovered by OCR — verify against the page image", Array.isArray(q.alsoAt) && q.alsoAt.length ? `Also stated at ${q.alsoAt.map((a: { page: number; section: string }) => `§${a.section} p.${a.page}`).join(", ")}` : ""].filter(Boolean).join(" · "), ai: true, confidence: (q.confidence as T.Confidence) || "High" })); // eslint-disable-line @typescript-eslint/no-explicit-any
             return {
-              tenders: patchIn(s.tenders, tenderId, { metadata: meta, reference: t.reference || (g.reference && g.reference !== "not stated" ? String(g.reference) : ""), client: t.client || String(g.client || ""), industry: t.industry === "other" && g.industry ? String(g.industry) : t.industry, service: t.service || String(g.service || ""), tenderType: g.tenderType && t.tenderType === "Tender" ? String(g.tenderType) : t.tenderType, closing: t.closing || (validDate ? dl : ""), stage: t.stage === "Analysis" ? "Qualification" : t.stage }),
+              tenders: patchIn(s.tenders, tenderId, { metadata: meta, reference: t.reference || (g.reference && g.reference !== "not stated" ? String(g.reference) : ""), client: t.client || (g.client && g.client !== "not stated" ? String(g.client) : ""), industry: t.industry === "other" && g.industry ? String(g.industry) : t.industry, service: t.service || (g.service && g.service !== "not stated" ? String(g.service) : ""), tenderType: g.tenderType && t.tenderType === "Tender" ? String(g.tenderType) : t.tenderType, closing: t.closing || (validDate ? dl : ""), stage: t.stage === "Analysis" ? "Qualification" : t.stage }),
               lastExtraction: now,
-              aiSummaries: [...s.aiSummaries.filter((a) => a.tenderId !== tenderId), { tenderId, generatedAt: now, model: j.provider, sections: Object.fromEntries(Object.entries(r.summary || {}).map(([k, v]) => [k, ns(v)])), recommendation: { verdict: (r.recommendation?.verdict as T.GoNoGo) || "Pending", reasoning: `${r.recommendation?.reasoning || ""}${ns(r.recommendation?.conditions).length ? " Conditions: " + ns(r.recommendation?.conditions).join("; ") : ""}` }, contractTerms: (r.contractTerms || []).map((c: Record<string, string>) => ({ term: c.term, finding: c.finding, risk: (c.risk as "High" | "Medium" | "Low") || "Medium", source: c.source || src })) }],
-              requirements: [...s.requirements.filter((q) => !(q.tenderId === tenderId && q.ai && q.status === "Needs Verification")), ...(r.requirements || []).map((q: Record<string, unknown>) => ({ id: uid(), tenderId, text: String(q.text), category: String(q.category || "Other"), priority: (q.priority as T.Requirement["priority"]) || "Must", sourceDoc: src, page: Number(q.page) || 0, section: String(q.section || ""), clause: String(q.clause || q.section || ""), evidence: String(q.evidence || ""), status: "Needs Verification" as const, reviewer: "", comments: "", ai: true, confidence: (q.confidence as T.Confidence) || "Medium" }))],
-              clauses: [...s.clauses, ...(r.clauses || []).filter((c: Record<string, unknown>) => !scoped(s.clauses, tenderId).some((x) => x.ref === String(c.ref || "") && x.title === String(c.title || ""))).map((c: Record<string, unknown>, i: number) => ({ id: uid(), tenderId, n: nClause + i + 1, ref: String(c.ref || ""), title: String(c.title || ""), category: String(c.category || "Other"), relevance: (c.relevance as T.Clause["relevance"]) || "Medium", markup: String(c.markup || ""), analysis: `${c.analysis || ""} (p.${c.page ?? "?"})`, status: "Pending" as const, confidence: "Medium" as const, pending: true, author: "VendorIQ AI", createdAt: now }))],
-              clarifications: [...s.clarifications, ...(r.clarifications || []).filter((c: Record<string, unknown>) => !scoped(s.clarifications, tenderId).some((x) => x.title.toLowerCase() === String(c.title || "").toLowerCase())).map((c: Record<string, unknown>, i: number) => ({ id: uid(), tenderId, n: nClar + i + 1, ref: String(c.ref || ""), round: 1, category: (c.category as T.Clarification["category"]) || "Technical", title: String(c.title || ""), analysis: `${c.question || ""} (p.${c.page ?? "?"})`, status: "Draft" as const, confidence: (c.confidence as T.Confidence) || "Medium", assignee: "", due: "", author: "VendorIQ AI", createdAt: now, pending: true }))],
+              aiSummaries: [...s.aiSummaries.filter((a) => a.tenderId !== tenderId), { tenderId, generatedAt: now, model: j.provider, sections: Object.fromEntries(Object.entries(r.summary || {}).map(([k, v]) => [k, ns(v)])), recommendation: { verdict: (r.recommendation?.verdict as T.GoNoGo) || "Pending", reasoning: `${r.recommendation?.reasoning || ""}${ns(r.recommendation?.conditions).length ? " Conditions: " + ns(r.recommendation?.conditions).join("; ") : ""}` }, contractTerms: (r.contractTerms || []).map((c: Record<string, string>) => ({ term: c.term, finding: c.finding, risk: (c.risk as "High" | "Medium" | "Low") || "Medium", source: c.source || src })), report }],
+              requirements: [...keptReqs, ...newReqs],
+              clauses: [...s.clauses, ...(r.clauses || []).filter((c: Record<string, unknown>) => !scoped(s.clauses, tenderId).some((x) => x.ref === String(c.ref || "") && x.title === String(c.title || ""))).map((c: Record<string, unknown>, i: number) => ({ id: uid(), tenderId, n: nClause + i + 1, ref: String(c.ref || ""), title: String(c.title || ""), category: String(c.category || "Other"), relevance: (c.relevance as T.Clause["relevance"]) || "Medium", markup: String(c.markup || ""), analysis: `${c.analysis || ""} (p.${c.page ?? "?"})`, status: "Pending" as const, confidence: "Medium" as const, pending: true, author: "BidWinning AI", createdAt: now }))],
+              clarifications: [...s.clarifications, ...(r.clarifications || []).filter((c: Record<string, unknown>) => !scoped(s.clarifications, tenderId).some((x) => x.title.toLowerCase() === String(c.title || "").toLowerCase())).map((c: Record<string, unknown>, i: number) => ({ id: uid(), tenderId, n: nClar + i + 1, ref: String(c.ref || ""), round: 1, category: (c.category as T.Clarification["category"]) || "Technical", title: String(c.title || ""), analysis: `${c.question || ""} (p.${c.page ?? "?"})`, status: "Draft" as const, confidence: (c.confidence as T.Confidence) || "Medium", assignee: "", due: "", author: "BidWinning AI", createdAt: now, pending: true }))],
               risks: [...s.risks, ...(r.risks || []).filter((k: Record<string, unknown>) => !scoped(s.risks, tenderId).some((x) => x.title.toLowerCase() === String(k.title || "").toLowerCase())).map((k: Record<string, unknown>, i: number) => ({ id: uid(), tenderId, n: nRisk + i + 1, kind: "Risk" as const, title: String(k.title || ""), description: String(k.description || ""), category: String(k.category || "Commercial"), probability: Math.min(5, Math.max(1, Number(k.probability) || 3)), impact: Math.min(5, Math.max(1, Number(k.impact) || 3)), postProbability: Math.max(1, (Number(k.probability) || 3) - 1), postImpact: Math.min(5, Math.max(1, Number(k.impact) || 3)), owner: "", status: "Open" as const, mitigation: String(k.mitigation || ""), contingency: 0 }))],
-              complianceItems: [...s.complianceItems, ...(r.compliance || []).filter((c: Record<string, unknown>) => !s.complianceItems.some((x) => x.tenderId === tenderId && x.item === c.item)).map((c: Record<string, unknown>) => ({ id: uid(), tenderId, item: String(c.item), status: "Needs Review" as const, evidence: "", owner: "", notes: `${c.evidence || ""} · ${c.source || src}` }))],
+              complianceItems: [...s.complianceItems, ...(r.compliance || []).filter((c: Record<string, unknown>) => !s.complianceItems.some((x) => x.tenderId === tenderId && x.item === c.item)).map((c: Record<string, unknown>) => ({ id: uid(), tenderId, item: String(c.item), status: "Needs Review" as const, evidence: "", owner: "", notes: `${c.evidence || ""} · ${c.source || src}${c.standard ? ` · Master Library: ${c.standard}${c.finding ? ` (${c.finding})` : ""}` : ""}` }))],
               deliverables: [...s.deliverables, ...(r.deliverables || []).filter((d: Record<string, unknown>) => !s.deliverables.some((x) => (x.tenderId ?? "t1") === tenderId && x.name === d.name)).map((d: Record<string, unknown>, i: number) => ({ id: uid(), tenderId, n: nDel + i + 1, name: String(d.name), type: (d.type as T.Deliverable["type"]) || "Technical", owner: "", status: "Not started" as const, due: "" }))],
             };
           });
-          get().logAI({ model: j.provider, promptVersion: "tender-review v1", task: "Full tender AI review", sources: docs.map((d) => d.name), input: `${j.chars} chars${j.truncated ? " (truncated)" : ""}`, outputSummary: `${(r.requirements || []).length} requirements · ${(r.clauses || []).length} clauses · ${(r.clarifications || []).length} clarifications · ${(r.risks || []).length} risks · ${(r.compliance || []).length} compliance · verdict ${r.recommendation?.verdict}`, confidence: "Medium", reviewStatus: "Pending" });
-          get().notify("AI analysis completed", `AI review of ${t.name} is ready — ${(r.requirements || []).length} requirements need verification.`, `/app/tenders/${tenderId}/ai-analysis`);
-          get().audit("AI review", "Tender", tenderId, `Provider ${j.provider}`);
+          const used = Array.from(new Set(report.findings.map((f) => f.standardName).filter((x): x is string => !!x)));
+          get().logAI({ model: j.provider, promptVersion: report.promptVersion, task: "Verified tender review", sources: [...docs.map((d) => d.name), ...used], input: `${j.chars} chars · ${report.coverage.pagesRead}/${report.coverage.pagesTotal} pages read · library v${report.library.version} (${report.library.rows} rows)${report.library.unavailable ? ` — LIBRARY UNAVAILABLE: ${report.library.unavailable}` : ""} · ${report.depth} depth`, outputSummary: `${report.coverage.statements} requirements (${report.coverage.judged} library-judged: ${report.stats.conforms} conform · ${report.stats.conflicts} conflict · ${report.stats.notCovered} not covered) · ${report.coverage.codesVerified}/${report.coverage.codesCited} cited standards verified in library · ${report.issues.length} consistency finding(s) · ${report.stats.aiStatementsDropped} AI statement(s) dropped (quote not found) · ${report.stats.failedChecks} AI citation(s) failed verification · verdict ${r.recommendation?.verdict}`, confidence: "Medium", reviewStatus: "Pending" });
+          get().notify("AI analysis completed", `Verified review of ${t.name} is ready — ${report.coverage.statements} requirements, ${report.stats.conflicts} library conflict(s), ${report.issues.filter((i) => i.severity === "High").length} high-severity finding(s).`, `/app/tenders/${tenderId}/ai-analysis`);
+          get().audit("AI review", "Tender", tenderId, `Provider ${j.provider} · library v${report.library.version}`);
           return null;
-        } catch (e) { return e instanceof Error ? e.message : "analysis failed"; } finally { set({ analysisBusy: false }); }
+        } catch (e) { return e instanceof Error ? e.message : "analysis failed"; } finally { set({ analysisBusy: false, analysisProgress: null }); }
+      },
+      reviewFinding: (tenderId, findingId, decision, note) => {
+        set((s) => ({ aiSummaries: s.aiSummaries.map((a) => { if (a.tenderId !== tenderId || !a.report) return a; const ap = { ...a.report.approvals }; if (decision) ap[findingId] = { by: s.currentUser, at: new Date().toISOString(), decision, note }; else delete ap[findingId]; return { ...a, report: { ...a.report, approvals: ap } }; }) }));
+        get().audit(decision ? `Finding ${decision.toLowerCase()}` : "Finding review cleared", "Tender", tenderId, findingId);
       },
       runExtraction: () => set({ lastExtraction: new Date().toISOString() }),
 
@@ -275,9 +310,6 @@ export const useStore = create<State>()(
       updateMilestone: (id, patch) => set((s) => ({ milestones: patchIn(s.milestones, id, patch) })),
       addMilestone: () => set((s) => ({ milestones: [...s.milestones, { id: uid(), tenderId: s.activeTenderId, name: "New milestone", pct: 0, date: "" }] })),
       deleteMilestone: (id) => set((s) => ({ milestones: s.milestones.filter((m) => m.id !== id) })),
-      updateCompetitor: (id, patch) => set((s) => ({ competitors: patchIn(s.competitors, id, patch) })),
-      addCompetitor: (name) => set((s) => ({ competitors: [...s.competitors, { id: uid(), tenderId: s.activeTenderId, name, capability: 3, pricing: 3, track: 3, vessels: [], note: "" }] })),
-      deleteCompetitor: (id) => set((s) => ({ competitors: s.competitors.filter((c) => c.id !== id) })),
       addLesson: (l) => set((s) => ({ lessons: [{ ...l, id: uid() }, ...s.lessons] })),
       deleteLesson: (id) => set((s) => ({ lessons: s.lessons.filter((l) => l.id !== id) })),
 
@@ -315,7 +347,7 @@ export const useStore = create<State>()(
       addContact: (c) => set((s) => ({ contacts: [...s.contacts, { ...c, id: uid() }] })),
       updateContact: (id, p) => set((s) => ({ contacts: patchIn(s.contacts, id, p) })),
       deleteContact: (id) => set((s) => ({ contacts: s.contacts.filter((c) => c.id !== id) })),
-      addOpportunity: (o) => { const id = uid(); const co = get().companies.find((c) => c.id === o.companyId); set((s) => ({ opportunities: [...s.opportunities, { id, name: o.name, companyId: o.companyId, industry: o.industry || co?.industry || "other", service: o.service || "", region: o.region || co?.region || "Global", value: o.value || 0, currency: o.currency || s.org.currency, probability: o.probability ?? 10, expectedAward: o.expectedAward || "", expectedStart: o.expectedStart || "", owner: o.owner || s.currentUser, source: o.source || "", stage: o.stage || "Lead", competitors: o.competitors || [], notes: o.notes || "", createdAt: new Date().toISOString() }] })); get().audit("Created", "Opportunity", id, o.name); return id; },
+      addOpportunity: (o) => { const id = uid(); const co = get().companies.find((c) => c.id === o.companyId); set((s) => ({ opportunities: [...s.opportunities, { id, name: o.name, companyId: o.companyId, industry: o.industry || co?.industry || "other", service: o.service || "", region: o.region || co?.region || "Global", value: o.value || 0, currency: o.currency || s.org.currency, probability: o.probability ?? 10, expectedAward: o.expectedAward || "", expectedStart: o.expectedStart || "", owner: o.owner || s.currentUser, source: o.source || "", stage: o.stage || "Lead", notes: o.notes || "", createdAt: new Date().toISOString() }] })); get().audit("Created", "Opportunity", id, o.name); return id; },
       updateOpportunity: (id, p) => set((s) => ({ opportunities: patchIn(s.opportunities, id, p) })),
       deleteOpportunity: (id) => set((s) => ({ opportunities: s.opportunities.filter((o) => o.id !== id) })),
       convertOpportunityToTender: (id) => {
@@ -417,7 +449,7 @@ export const useStore = create<State>()(
       deleteCustomIndustry: (id) => set((s) => ({ customIndustries: s.customIndustries.filter((c) => c.id !== id) })),
       reset: () => set(initial()),
     }),
-    { name: "vendoriq-tenderos", storage: createJSONStorage(() => ({ getItem: (k) => localStorage.getItem(k), setItem: (k, v) => { try { localStorage.setItem(k, v); } catch { console.warn("VendorIQ: local storage quota exceeded — state kept in memory only for this session."); } }, removeItem: (k) => localStorage.removeItem(k) })), version: 5, migrate: () => initial() as unknown as State, partialize: (s) => ({ ...s, chatBusy: false, analysisBusy: false }) as State }
+    { name: "vendoriq-tenderos", storage: createJSONStorage(() => ({ getItem: (k) => localStorage.getItem(k), setItem: (k, v) => { try { localStorage.setItem(k, v); } catch { console.warn("BidWinning: local storage quota exceeded — state kept in memory only for this session."); } }, removeItem: (k) => localStorage.removeItem(k) })), version: 5, migrate: () => initial() as unknown as State, partialize: (s) => ({ ...s, chatBusy: false, analysisBusy: false, analysisProgress: null }) as State }
   )
 );
 
@@ -470,6 +502,12 @@ function mockReply(agent: string, text: string, s: State) {
 export const severity = (p: number, i: number): T.Severity => { const s = p * i; return s >= 16 ? "Very High" : s >= 10 ? "High" : s >= 5 ? "Medium" : "Low"; };
 export const fmtMoney = (n: number, cur = "CAD") => new Intl.NumberFormat("en-CA", { style: "currency", currency: cur, maximumFractionDigits: 0 }).format(n);
 export const daysLeft = (iso: string) => Math.max(0, Math.ceil((new Date(iso).getTime() - Date.now()) / 86400000));
+/** Countdown label that does not hide missed deadlines: "12d", "today", "241d overdue" (long: "12 days", …). */
+export const dueLabel = (iso: string, long = false) => {
+  const d = Math.ceil((new Date(iso).getTime() - Date.now()) / 86400000);
+  const n = (x: number) => (long ? `${x} day${x === 1 ? "" : "s"}` : `${x}d`);
+  return d < 0 ? `${n(-d)} overdue` : d === 0 ? "today" : n(d);
+};
 
 
 /** Tender Health — every factor is computed from real records; nothing is hard-coded. */
@@ -482,17 +520,22 @@ export function tenderHealth(s: State, tenderId: string) {
   const comm = s.proposalSections.filter((p) => p.tenderId === tenderId && p.kind === "commercial");
   const pv = s.priceVersions.filter((p) => p.tenderId === tenderId);
   const docs = scoped(s.docs, tenderId), risks = scoped(s.risks, tenderId);
-  const factors = [
+  const rep = s.aiSummaries.find((a) => a.tenderId === tenderId)?.report; // the verified analysis report, when one exists
+  const judged = rep ? rep.findings.filter((f) => f.verdict === "Conforms" || f.verdict === "Conflicts") : []; // reference-only and not-covered items say nothing about conformance
+  const factors: { label: string; value: number; na?: boolean; hint?: string }[] = [
     { label: "Requirements", value: pct(reqs.filter((r) => r.status !== "Needs Verification").length, reqs.length) },
     { label: "Compliance", value: pct(comp.filter((c) => c.status === "Compliant").length, comp.length) },
-    { label: "Documents", value: pct(docs.filter((d) => d.status === "INDEXED").length, Math.max(docs.length, 3)) },
+    rep ? { label: "Documents", value: pct(rep.coverage.pagesRead, rep.coverage.pagesTotal), hint: `${rep.coverage.pagesRead} of ${rep.coverage.pagesTotal} pages were actually read` }
+        : { label: "Documents", value: pct(docs.filter((d) => d.status === "INDEXED").length, Math.max(docs.length, 3)) },
+    { label: "Library check", value: pct(judged.filter((f) => f.verdict === "Conforms").length, judged.length), na: !judged.length, hint: judged.length ? `${judged.filter((f) => f.verdict === "Conforms").length} of ${judged.length} library-judged requirements conform (${judged.filter((f) => f.verdict === "Conflicts").length} conflict)` : "No requirement has been judged against the library yet" },
     { label: "Technical", value: pct(tech.filter((p) => p.status === "Approved" || p.status === "Human Edited" || p.status === "In Review").length, tech.length) },
     { label: "Commercial", value: pct(comm.filter((p) => p.status !== "AI Draft").length, comm.length) },
     { label: "Pricing", value: pv.some((p) => p.locked) ? 100 : pv.length ? 60 : 0 },
     { label: "Risk", value: pct(risks.filter((r) => r.status !== "Open" || r.mitigation).length, risks.length) },
     { label: "Submission", value: pct(revs.filter((r) => r.status === "Approved").length, Math.max(revs.length, 3)) },
   ];
-  const score = Math.round(factors.reduce((a, f) => a + f.value, 0) / factors.length);
+  const counted = factors.filter((f) => !f.na);
+  const score = Math.round(counted.reduce((a, f) => a + f.value, 0) / Math.max(1, counted.length));
   return { score, factors };
 }
 
@@ -513,5 +556,5 @@ export const scoped = <X extends { tenderId?: string }>(arr: X[], tenderId: stri
 export function useScopedStore() {
   const s = useStore();
   const id = s.activeTenderId;
-  return { ...s, actions: scoped(s.actions, id), docs: scoped(s.docs, id), clarifications: scoped(s.clarifications, id), clauses: scoped(s.clauses, id), qualifications: scoped(s.qualifications, id), risks: scoped(s.risks, id), deliverables: scoped(s.deliverables, id), costLines: scoped(s.costLines, id), milestones: scoped(s.milestones, id), competitors: scoped(s.competitors, id), procPackages: scoped(s.procPackages, id), chat: s.chat.filter((m) => (m.tenderId ?? "t1") === id) };
+  return { ...s, actions: scoped(s.actions, id), docs: scoped(s.docs, id), clarifications: scoped(s.clarifications, id), clauses: scoped(s.clauses, id), qualifications: scoped(s.qualifications, id), risks: scoped(s.risks, id), deliverables: scoped(s.deliverables, id), costLines: scoped(s.costLines, id), milestones: scoped(s.milestones, id), procPackages: scoped(s.procPackages, id), chat: s.chat.filter((m) => (m.tenderId ?? "t1") === id) };
 }

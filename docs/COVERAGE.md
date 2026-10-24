@@ -1,4 +1,4 @@
-# VendorIQ — Spec coverage & verification (2026-09-22)
+# BidWinning — Spec coverage & verification (2026-09-22)
 
 Each row maps a section of `PRODUCT_SPEC.md` to where it lives and how it is verified. Status: ✅ implemented & tested · 🟡 implemented, partial · ⏳ deferred by owner.
 

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Plus, Search, ArrowUpRight, Trash2 } from "lucide-react";
 import { Button, Card, Badge, Input, Select, ProgressBar, PageHeader } from "@/components/ui";
-import { useStore, filterByIndustry, daysLeft, tenderHealth } from "@/store/useStore";
+import { useStore, filterByIndustry, daysLeft, dueLabel, tenderHealth } from "@/store/useStore";
 import { useUI } from "@/components/app/ui-state";
 import { useIndustries } from "@/lib/useIndustries";
 import { tenderTypes } from "@/lib/industries";
@@ -30,7 +30,7 @@ export default function TendersPage() {
             <p className="font-mono text-[11px] text-app-muted">{t.reference} · {ind?.icon} {ind?.name} · {t.service}</p>
             <p className="mt-2 line-clamp-2 min-h-[32px] text-xs text-app-muted">{t.description}</p>
             <div className="mt-3 flex flex-wrap gap-1.5"><Badge tone="outline">{t.stage}</Badge><Badge tone={gTone(t.goNoGo)}>{t.goNoGo}</Badge><Badge tone={h.score >= 70 ? "green" : h.score >= 40 ? "yellow" : "red"}>Health {h.score}</Badge></div>
-            <div className="mt-3 flex justify-between text-xs"><span className="text-app-muted">Value: <span className="text-app-green">{money(t.value, t.currency)}</span></span><span className="text-app-muted">Closing: <span className="text-app-text">{t.closing || "—"}</span>{t.closing && <span className={cn("ml-1 font-mono", daysLeft(t.closing) <= 30 ? "text-app-red" : "text-app-dim")}>({daysLeft(t.closing)}d)</span>}</span></div>
+            <div className="mt-3 flex justify-between text-xs"><span className="text-app-muted">Value: <span className="text-app-green">{money(t.value, t.currency)}</span></span><span className="text-app-muted">Closing: <span className="text-app-text">{t.closing || "—"}</span>{t.closing && <span className={cn("ml-1 font-mono", daysLeft(t.closing) <= 30 ? "text-app-red" : "text-app-dim")}>({dueLabel(t.closing)})</span>}</span></div>
             <div className="mt-4 flex items-center justify-between"><div className="flex items-center gap-2 text-xs text-app-muted">Owner: <span className="text-app-text">{t.owner}</span></div><Button variant="primary" size="sm" onClick={() => { s.setActiveTender(t.id); router.push(`/app/tenders/${t.id}`); }}>Open workspace <ArrowUpRight size={12} /></Button></div>
             <ProgressBar value={h.score} tone={h.score >= 70 ? "green" : h.score >= 40 ? "yellow" : "red"} className="mt-3" />
           </Card>

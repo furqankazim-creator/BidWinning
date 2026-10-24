@@ -13,7 +13,7 @@ const statusTone = (st: Requirement["status"]) => st === "Approved" || st === "C
 export default function Requirements() {
   const { id } = useParams<{ id: string }>(); const s = useStore();
   const [cat, setCat] = useState("All"); const [st, setSt] = useState("All"); const [q, setQ] = useState("");
-  const [edit, setEdit] = useState<Partial<Requirement> | null>(null);
+  const [edit, setEdit] = useState<Partial<Requirement> | null>(null); const [limit, setLimit] = useState(80);
   const all = s.requirements.filter((r) => r.tenderId === id);
   const list = all.filter((r) => (cat === "All" || r.category === cat) && (st === "All" || r.status === st) && (r.text + r.clause).toLowerCase().includes(q.toLowerCase()));
   const pending = all.filter((r) => r.status === "Needs Verification").length;
@@ -27,7 +27,7 @@ export default function Requirements() {
       <div className="mb-4 flex flex-wrap gap-2"><Input className="flex-1 min-w-[200px]" placeholder="Search text or clause…" value={q} onChange={(e) => setQ(e.target.value)} /><Select value={cat} onChange={(e) => setCat(e.target.value)}><option>All</option>{cats.map((c) => <option key={c}>{c}</option>)}</Select><Select value={st} onChange={(e) => setSt(e.target.value)}>{["All", "Needs Verification", "Approved", "Rejected", "Compliant", "Partial", "Non-Compliant"].map((x) => <option key={x}>{x}</option>)}</Select></div>
       {pending > 0 && <Card className="mb-4 flex items-center justify-between px-4 py-2.5"><p className="text-xs text-app-accent">{pending} AI-extracted requirement(s) awaiting verification</p><Button size="sm" variant="primary" onClick={() => all.filter((r) => r.status === "Needs Verification").forEach((r) => s.updateRequirement(r.id, { status: "Approved", reviewer: s.currentUser }))}><Check size={12} /> Approve all</Button></Card>}
       <div className="space-y-2">
-        {list.map((r) => (
+        {list.slice(0, limit).map((r) => (
           <Card key={r.id} className={cn("p-4", r.status === "Needs Verification" && "border-l-2 border-l-app-accent")}>
             <div className="flex flex-wrap items-center gap-1.5"><Badge tone="outline">{r.category}</Badge><Badge tone={r.priority === "Must" ? "red" : r.priority === "Should" ? "yellow" : "outline"}>{r.priority}</Badge>{r.ai && <Badge tone={confidenceTone(r.confidence)}>● AI · {r.confidence}</Badge>}<Badge tone={statusTone(r.status)}>{r.status}</Badge>{r.deadline && <Badge tone="outline">due {r.deadline}</Badge>}</div>
             <p className="mt-2 text-[14px] text-app-text">{r.text}</p>
@@ -44,6 +44,7 @@ export default function Requirements() {
             </div>
           </Card>
         ))}
+        {list.length > limit && <Card className="p-3 text-center"><Button variant="outline" size="sm" onClick={() => setLimit(limit + 120)}>Show 120 more ({list.length - limit} remaining)</Button></Card>}
         {list.length === 0 && <Card className="p-8 text-center text-xs text-app-dim">No requirements. Run AI Analysis or add manually.</Card>}
       </div>
       <Modal open={!!edit} onClose={() => setEdit(null)} title={edit?.id ? "Edit requirement" : "Add requirement"} wide>

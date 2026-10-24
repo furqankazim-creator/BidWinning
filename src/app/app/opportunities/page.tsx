@@ -63,7 +63,6 @@ export default function Opportunities() {
               <Field label="Source"><Input className="w-full" value={v.source} onChange={(e) => set({ source: e.target.value })} /></Field>
               {edit && <Field label="Stage"><Select className="w-full" value={edit.stage} onChange={(e) => setEdit({ ...edit, stage: e.target.value as OppStage })}>{stages.map((x) => <option key={x}>{x}</option>)}</Select></Field>}
             </div>
-            <Field label="Competitors (comma-separated)"><Input className="w-full" value={(v.competitors || []).join(", ")} onChange={(e) => set({ competitors: e.target.value.split(",").map((x) => x.trim()).filter(Boolean) })} /></Field>
             <Field label="Notes"><Textarea className="w-full" value={v.notes} onChange={(e) => set({ notes: e.target.value })} /></Field>
             <div className="flex items-center justify-between">
               <div className="flex gap-2">{edit && <Button type="button" variant="danger" onClick={() => { s.deleteOpportunity(edit.id); setEdit(null); }}><Trash2 size={12} /> Delete</Button>}{edit && !edit.tenderId && <Button type="button" variant="outline" onClick={() => { const id = s.convertOpportunityToTender(edit.id); setEdit(null); router.push(`/app/tenders/${id}`); }}>Open Tender Workspace <ArrowRight size={12} /></Button>}</div>

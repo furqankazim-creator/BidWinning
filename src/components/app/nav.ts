@@ -1,4 +1,4 @@
-import { Database, Gauge, Building2, Users, Kanban, Inbox, Layers, Handshake, Target, BadgeCheck, LayoutGrid, FileText, Sparkles, ListChecks, ShieldCheck, MessageSquare, ShieldAlert, Scale, ShoppingCart, AlertTriangle, DraftingCompass, CheckSquare, Coins, SlidersHorizontal, Swords, FileSignature, Receipt, ClipboardCheck, Stamp, Presentation, Upload, Trophy, RotateCcw, FileBadge, FolderKanban, BarChart3, BookOpen, Factory, UserCog, History, Bot, type LucideIcon } from "lucide-react";
+import { Database, Gauge, Building2, Users, Kanban, Inbox, Layers, Handshake, BadgeCheck, LayoutGrid, FileText, Sparkles, ListChecks, ShieldCheck, MessageSquare, ShieldAlert, Scale, AlertTriangle, DraftingCompass, CheckSquare, Coins, SlidersHorizontal, Swords, FileSignature, Receipt, ClipboardCheck, Stamp, Presentation, Upload, Trophy, RotateCcw, FileBadge, FolderKanban, BarChart3, BookOpen, Factory, UserCog, History, Bot, type LucideIcon } from "lucide-react";
 
 export interface NavItem { label: string; href: string; icon?: LucideIcon; countKey?: "clarifications" | "contract" | "deliverables" | "inquiries" | "approvals" | "reviews"; children?: { label: string; href: string }[]; }
 export interface NavGroup { label?: string; items: NavItem[]; }
@@ -17,7 +17,6 @@ export function buildNav(tid: string): NavGroup[] {
     { label: "Tender Intelligence", items: [
       { label: "Tender Workspaces", href: "/app/tenders", icon: Layers },
       { label: "Vendors & Partners", href: "/app/vendors", icon: Handshake },
-      { label: "Competitors", href: "/app/competitors", icon: Target },
       { label: "Our Capabilities", href: "/app/capabilities", icon: BadgeCheck },
     ] },
     { label: "Active Workspace", items: [

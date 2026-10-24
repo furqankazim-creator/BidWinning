@@ -156,3 +156,12 @@ html { transition: background-color .3s ease, color .3s ease; }
 .col-tint-ready { background: #161408; } .col-tint-progress { background: #17110a; } .col-tint-waiting { background: #120e1c; } .col-tint-complete { background: #0b1612; } .col-tint-lost { background: #180d0d; }
 :root[data-app-theme="light"] .col-tint-ready { background: #fbf6e3; } :root[data-app-theme="light"] .col-tint-progress { background: #fcefe1; } :root[data-app-theme="light"] .col-tint-waiting { background: #f0ecfb; } :root[data-app-theme="light"] .col-tint-complete { background: #e7f5ee; } :root[data-app-theme="light"] .col-tint-lost { background: #fbe9e7; }
 .app-heat-empty { background: #1f1f1f; } :root[data-app-theme="light"] .app-heat-empty { background: #e6e2d9; }
+
+/* ---------- RTL and Arabic Typography Enhancements ---------- */
+[dir="rtl"], html[lang="ar"], .is-rtl {
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Cairo", "IBM Plex Sans Arabic", "Noto Sans Arabic", Tahoma, sans-serif;
+}
+
+[dir="rtl"] .marquee {
+  animation-direction: reverse;
+}

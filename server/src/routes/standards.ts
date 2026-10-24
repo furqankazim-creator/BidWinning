@@ -1,22 +1,33 @@
 import { Router } from "express";
-import { pipeline } from "@xenova/transformers";
-import * as lancedb from "@lancedb/lancedb";
+import { getExtractor } from "../embed.js";
+import { verified } from "./verified.js";
 import path from "path";
 import fs from "fs";
 
 export const standards = Router();
+standards.use("/v", verified);
 
-let extractorPipeline: any = null;
-async function getExtractor() {
-  if (!extractorPipeline) {
-    console.log("[standards] Loading embedding model into memory...");
-    extractorPipeline = await pipeline("feature-extraction", "Xenova/all-MiniLM-L6-v2");
+// Retrieval tuning for /search-batch (cosine similarity of all-MiniLM-L6-v2 embeddings).
+// Below ~0.3 matches were observed to be unrelated standards; chunks under 80 chars are mostly headers/footers.
+const MIN_RULE_SCORE = Number(process.env.STANDARDS_MIN_SCORE) || 0.3;
+const MIN_RULE_CHARS = 80;
+const MAX_RULES = 10;
+const MAX_RULE_CHARS = 600;
+const MAX_RULE_CHARS_TOTAL = 4000;
+
+// LanceDB is loaded lazily: it ships no native binary for some platforms (e.g. Intel macOS),
+// and a static import would stop the whole API from booting there.
+async function loadLance() {
+  try {
+    return await import("@lancedb/lancedb");
+  } catch (e: any) {
+    throw new Error(`Standards library unavailable: LanceDB native module could not be loaded on ${process.platform}-${process.arch} (${e?.message?.split("\n")[0]})`);
   }
-  return extractorPipeline;
 }
 
 // Get LanceDB table
 async function getTable() {
+  const lancedb = await loadLance();
   const dbDir = path.join(process.cwd(), "data", "lancedb");
   const db = await lancedb.connect(dbDir);
   return await db.openTable("standards");
@@ -97,10 +108,13 @@ standards.post("/search-batch", async (req, res, next) => {
       })
     );
 
-    // Flatten results and deduplicate by standard rule text to avoid feeding the LLM the exact same rule 50 times
+    // Flatten results and deduplicate by standard rule text to avoid feeding the LLM the exact same rule 50 times.
+    // Drop weak matches (unrelated standards would otherwise be presented to the LLM as "rules to comply with")
+    // and tiny chunks (page headers/footers, titles) that carry no requirement.
     const uniqueRules = new Map();
     allResults.flat().forEach((c: any) => {
-      if (c && c.text && !uniqueRules.has(c.text)) {
+      if (!c || !c.text || c.text.trim().length < MIN_RULE_CHARS || 1 - (c._distance || 0) < MIN_RULE_SCORE) return;
+      if (!uniqueRules.has(c.text)) {
         uniqueRules.set(c.text, {
           standardName: c.standardName,
           folder: c.folder,
@@ -110,13 +124,21 @@ standards.post("/search-batch", async (req, res, next) => {
       }
     });
 
-    // Return the top unique rules (limit to say 25 to avoid blowing up the Groq context window, though Groq allows 100k+)
-    const topRules = Array.from(uniqueRules.values())
-      .sort((a, b) => parseFloat(b.score) - parseFloat(a.score))
-      .slice(0, 30);
+    // Return the top unique rules within a character budget so the analysis prompt stays inside Groq's free-tier TPM limit
+    const sorted = Array.from(uniqueRules.values()).sort((a, b) => parseFloat(b.score) - parseFloat(a.score));
+    const topRules = [];
+    let budget = MAX_RULE_CHARS_TOTAL;
+    for (const r of sorted) {
+      if (topRules.length >= MAX_RULES || budget <= 0) break;
+      const text = r.text.replace(/\s+/g, " ").trim().slice(0, MAX_RULE_CHARS);
+      topRules.push({ ...r, text });
+      budget -= text.length;
+    }
 
     res.json({
       success: true,
+      searched: chunks.length,
+      matchedAboveThreshold: sorted.length,
       results: topRules
     });
   } catch (err: any) {

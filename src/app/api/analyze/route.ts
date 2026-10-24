@@ -1,67 +1,58 @@
 import { NextRequest } from "next/server";
 import { completeJSON, provider, providerLabel } from "@/lib/server/llm";
+import { extractFile } from "@/lib/server/verified/extract";
+import { runVerifiedPipeline } from "@/lib/server/verified/pipeline";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-export const maxDuration = 120;
+export const maxDuration = 3600;
 
-const MAX_CHARS = 12_000; // ~3k tokens; lowered to fit Groq's free tier 8000 TPM limit
+const MAX_CHARS = 12_000; // single-document "general information" extraction only; tender review reads the whole document
 
-/** Extract plain text from an uploaded file (PDF, DOCX, TXT/MD/CSV). Returns text plus page markers for PDFs. */
-async function extractText(file: File): Promise<{ text: string; pages: number }> {
-  const buf = Buffer.from(await file.arrayBuffer());
-  const name = file.name.toLowerCase();
-  if (name.endsWith(".pdf")) {
-    const pdfParse = (await import("pdf-parse/lib/pdf-parse.js")).default as (b: Buffer, o?: object) => Promise<{ text: string; numpages: number }>;
-    let pageNo = 0;
-    const data = await pdfParse(buf, { pagerender: (page: { getTextContent: () => Promise<{ items: { str: string }[] }> }) => page.getTextContent().then((tc) => `\n\n[[PAGE ${++pageNo}]]\n` + tc.items.map((i) => i.str).join(" ")) });
-    return { text: data.text, pages: data.numpages };
-  }
-  if (name.endsWith(".docx")) {
-    const mammoth = await import("mammoth");
-    const r = await mammoth.extractRawText({ buffer: buf });
-    return { text: r.value, pages: Math.max(1, Math.round(r.value.length / 3000)) };
-  }
-  return { text: buf.toString("utf8"), pages: 1 };
-}
-
-const SYSTEM = `You are the document-intelligence engine of VendorIQ, a tender & bid platform used by contractors across industries.
+const SYSTEM = `You are the document-intelligence engine of BidWinning, a tender & bid platform used by contractors across industries.
 You read tender documents (ITT/RFP/RFQ/SOW/contracts) and return STRICT JSON only — no prose outside the JSON.
-Rules: every finding must cite where it comes from (page marker [[PAGE n]] and the section/clause number as written). Never invent facts; if something is not stated, write "not stated". Flag ambiguities, conflicts, missing information and copy-paste errors in the document. Quantities and numbers must be quoted exactly. Keep each text field concise (max ~60 words).`;
-
-const TENDER_SCHEMA = `Return JSON with exactly these keys:
-{
- "general": {"title":"","reference":"","client":"","issuer":"","project":"","industry":"one of: oil-gas, infrastructure, construction, manufacturing, engineering, energy, renewables, utilities, telecom, it, government, healthcare, pharma, transport, logistics, mining, real-estate, fm, industrial, water, defense, education, consulting, professional, trading, other","service":"","location":"","tenderType":"one of: Tender, RFP, RFQ, RFI, ITT, EOI, Prequalification, Framework Agreement, Government Procurement, Private Procurement, Direct Opportunity, Subcontract Opportunity, Vendor Registration, Partner Opportunity","contractType":"","pricingBasis":"","submissionDeadline":"YYYY-MM-DD or not stated","duration":"","value":"","currency":"","keyDates":[""]},
- "summary": {"Executive Summary":[""],"Scope Summary":[""],"Key Requirements":[""],"Important Dates":[""],"Commercial Requirements":[""],"Technical Requirements":[""],"Legal Requirements":[""],"Compliance Requirements":[""],"Missing Information":[""],"Potential Risks":[""],"Questions for Client":[""]},
- "requirements":[{"text":"","category":"one of: Technical, Commercial, Legal, Financial, Administrative, Compliance, HSE, Quality, Experience, Personnel, Equipment, Material, Delivery, Schedule, Warranty, Insurance, Licensing, Certification, Local content, Security, Data/privacy, Environmental, Sustainability, Other","priority":"Must|Should|Could","page":1,"section":"","clause":"","evidence":"what evidence the bidder must provide","confidence":"High|Medium|Low"}],
- "contractTerms":[{"term":"one of: Payment Terms, Payment Milestones, Retention, Warranty, Liability, Indemnity, Insurance, Performance Bond, Advance Payment, Liquidated Damages, Termination, Dispute Resolution, Governing Law, Intellectual Property, Confidentiality, Change Orders, Force Majeure, Subcontracting, Penalty Clauses, Delivery Obligations, Acceptance Criteria","finding":"","risk":"High|Medium|Low","source":"section + page"}],
- "clauses":[{"ref":"","title":"","category":"Liability|Payment|LD & Delay|Insurance|Variations|Termination|IP|Scope|Other","relevance":"High|Medium|Low","markup":"proposed qualification/redline","analysis":"why it matters","page":1}],
- "clarifications":[{"ref":"section","category":"Technical|Commercial|Contractual","title":"","question":"precise question to the client","page":1,"confidence":"High|Medium|Low"}],
- "risks":[{"title":"","description":"","category":"Technical|Commercial|Financial|Legal|Contract|Procurement|Schedule|Operational|HSE|Environmental|Cybersecurity|Resource|Reputation|Supply Chain","probability":1,"impact":1,"mitigation":""}],
- "compliance":[{"item":"","evidence":"","source":"section + page"}],
- "deliverables":[{"name":"","type":"Technical|Commercial","source":"section + page"}],
- "quantities":[{"item":"","qty":0,"unit":"","source":"section + page"}],
- "recommendation":{"verdict":"GO|CONDITIONAL GO|NO-GO","reasoning":"3-5 sentences with the decisive factors","conditions":[""]}
-}
-Aim for 12-30 requirements, 6-12 clarifications, 6-12 risks, 8-15 compliance items. Probability/impact are 1-5.`;
+Rules: every finding must cite where it comes from (page marker [[PAGE n]] and the section/clause number as written). Never invent facts; if something is not stated, write "not stated". Quantities and numbers must be quoted exactly. Keep each text field concise (max ~60 words).`;
 
 const DOC_SCHEMA = `Return JSON: {"Title":"","Reference":"","Client":"","Issuer":"","Project":"","Industry":"","Location":"","Dates":"","Value":"","Currency":"","Duration":"","Tender type":"","Document type":"","Pages":"","Key sections":""}. Use "not stated" where absent.`;
 
+/** Newline-delimited JSON stream: progress events, then one result (or error). Aborts when the client disconnects. */
+function stream(req: NextRequest, run: (send: (o: unknown) => void, aborted: () => boolean) => Promise<void>) {
+  const enc = new TextEncoder(); let closed = false;
+  const body = new ReadableStream({
+    async start(ctrl) {
+      const send = (o: unknown) => { if (closed) return; try { ctrl.enqueue(enc.encode(JSON.stringify(o) + "\n")); } catch { closed = true; } };
+      const beat = setInterval(() => send({ type: "ping" }), 8000);
+      try { await run(send, () => closed || req.signal.aborted); }
+      catch (e) { if (!(e instanceof Error && e.message === "cancelled")) send({ type: "error", error: e instanceof Error ? e.message : "analysis failed" }); }
+      finally { clearInterval(beat); if (!closed) { closed = true; try { ctrl.close(); } catch { /* already closed */ } } }
+    },
+    cancel() { closed = true; },
+  });
+  return new Response(body, { headers: { "content-type": "application/x-ndjson; charset=utf-8", "cache-control": "no-cache, no-transform", "x-accel-buffering": "no" } });
+}
+
 export async function POST(req: NextRequest) {
-  if (!provider()) return Response.json({ error: "no_credentials" }, { status: 503 });
   const ct = req.headers.get("content-type") || "";
-  let text = "", name = "document", mode = "tender", pages = 0; let context: Record<string, unknown> = {};
-  try {
-    if (ct.includes("multipart/form-data")) {
-      const form = await req.formData();
-      const file = form.get("file"); mode = String(form.get("mode") || "document");
-      if (!(file instanceof File)) return Response.json({ error: "file missing" }, { status: 400 });
-      name = file.name; const ex = await extractText(file); text = ex.text; pages = ex.pages;
-      if (mode === "extract") return Response.json({ name, text, pages });
-    } else {
-      const body = await req.json(); text = String(body.text || ""); name = body.name || name; mode = body.mode || "tender"; context = body.context || {};
-    }
-  } catch (e) { return Response.json({ error: `Could not read file: ${e instanceof Error ? e.message : "unknown"}` }, { status: 400 }); }
+  let text = "", name = "document", mode = "tender"; let context: Record<string, unknown> = {}; let depth: "standard" | "deep" = "standard";
+
+  // ---- file upload: text-layer extraction + OCR cross-check, streamed (needs no AI key)
+  if (ct.includes("multipart/form-data")) {
+    let file: unknown; let m = "extract";
+    try { const form = await req.formData(); file = form.get("file"); m = String(form.get("mode") || "extract"); }
+    catch (e) { return Response.json({ error: `Could not read file: ${e instanceof Error ? e.message : "unknown"}` }, { status: 400 }); }
+    if (!(file instanceof File)) return Response.json({ error: "file missing" }, { status: 400 });
+    if (m !== "extract") return Response.json({ error: "unsupported mode for upload" }, { status: 400 });
+    return stream(req, async (send) => {
+      const r = await extractFile(file, (e) => send({ type: "progress", ...e }));
+      if (!r.text.replace(/\[\[PAGE \d+\]\]/g, "").replace(//g, "").trim()) throw new Error("No extractable text — the pages are images and OCR could not read them reliably (is the API server on port 4005 running?)");
+      send({ type: "result", name: r.name, text: r.text, pages: r.pages, ocr: r.ocr, boilerplateLines: r.boilerplateLines });
+    });
+  }
+
+  try { const body = await req.json(); text = String(body.text || ""); name = body.name || name; mode = body.mode || "tender"; context = body.context || {}; depth = body.depth === "deep" ? "deep" : "standard"; }
+  catch (e) { return Response.json({ error: `Could not read request: ${e instanceof Error ? e.message : "unknown"}` }, { status: 400 }); }
+  if (!provider()) return Response.json({ error: "no_credentials" }, { status: 503 });
+
   if (mode === "draft") {
     // Draft prose sections (proposal / engineering) grounded in the workspace context + document text.
     const body = context as { sections?: string[]; kind?: string; tender?: unknown; facts?: unknown };
@@ -70,62 +61,23 @@ export async function POST(req: NextRequest) {
     try {
       const out = await completeJSON<{ sections: { title: string; body: string }[] }>(
         `You draft ${body.kind || "technical proposal"} sections for a bidder. Write in confident, specific, professional prose grounded ONLY in the supplied tender facts and document text; where a fact is unknown write "[to confirm: …]". 120–220 words per section, plain paragraphs (no headings inside). Return strict JSON.`,
-        `Return JSON {"sections":[{"title":"","body":""}]} for these titles: ${JSON.stringify(sections)}.\n\nTENDER FACTS: ${JSON.stringify(body.tender || {})}\nWORKSPACE FACTS: ${JSON.stringify(body.facts || {})}\n\nDOCUMENT TEXT:\n${text.slice(0, 15_000) || "(none indexed)"}`, 3000);
+        `Return JSON {"sections":[{"title":"","body":""}]} for these titles: ${JSON.stringify(sections)}.\n\nTENDER FACTS: ${JSON.stringify(body.tender || {})}\nWORKSPACE FACTS: ${JSON.stringify(body.facts || {})}\n\nDOCUMENT TEXT:\n${text.replace(//g, "").slice(0, 15_000) || "(none indexed)"}`, 3000);
       return Response.json({ sections: out.sections || [], provider: providerLabel() });
     } catch (e) { return Response.json({ error: e instanceof Error ? e.message : "draft failed" }, { status: 502 }); }
   }
-  if (!text.trim()) return Response.json({ error: "No extractable text (scanned PDF? run OCR first)." }, { status: 422 });
-  const clipped = text.length > MAX_CHARS ? text.slice(0, MAX_CHARS) + "\n\n[[TRUNCATED — document exceeds analysis window]]" : text;
-  try {
-    if (mode === "document") {
-      const analysis = await completeJSON<Record<string, string>>(SYSTEM, `${DOC_SCHEMA}\n\nDOCUMENT "${name}":\n${clipped}`, 1500);
-      return Response.json({ name, pages, text, analysis, provider: providerLabel() });
-    }
+  if (!text.trim()) return Response.json({ error: "No extractable text (scanned PDF? re-upload so OCR can run)." }, { status: 422 });
 
-    // Retrieve relevant Master Library rules for this tender via parallel chunking
-    let masterLibraryRules = "";
+  if (mode === "document") {
+    const clipped = text.replace(//g, "").replace(/\[\[PAGE \d+\]\]/g, " ").slice(0, MAX_CHARS);
     try {
-      // 1. Break the document into small chunks
-      const paragraphs = clipped.split(/\n\s*\n/).map(p => p.trim()).filter(p => p.length > 50);
-      const chunks: string[] = [];
-      let currentChunk = "";
-      for (const p of paragraphs) {
-        if (currentChunk.length + p.length > 1500) {
-          chunks.push(currentChunk);
-          currentChunk = p;
-        } else {
-          currentChunk += (currentChunk ? "\n\n" : "") + p;
-        }
-      }
-      if (currentChunk) chunks.push(currentChunk);
-
-      // 2. Batch vector search all chunks in parallel
-      const searchRes = await fetch("http://localhost:4005/api/standards/search-batch", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ chunks })
-      });
-
-      if (searchRes.ok) {
-        const data = await searchRes.json();
-        // 3. Compile deduplicated master rules list
-        if (data.success && data.results?.length) {
-          masterLibraryRules = "MASTER LIBRARY RULES (MUST EVALUATE BIDDER COMPLIANCE AGAINST THESE):\n" + 
-            data.results.map((c: any) => `[${c.standardName}] ${c.text}`).join("\n\n");
-        }
-      }
-    } catch (e) {
-      console.error("Could not fetch Master Library rules via batch search", e);
-    }
-    
-    const promptContext = masterLibraryRules 
-      ? `\n\n${masterLibraryRules}\n\nIMPORTANT: When generating the 'requirements' and 'compliance' arrays, explicitly evaluate the tender against the above Master Library Rules. If a rule is mentioned or violated, flag it in compliance.` 
-      : "";
-
-    const result = await completeJSON<Record<string, unknown>>(SYSTEM, `${TENDER_SCHEMA}\n\nORGANISATION CONTEXT (bidder): ${JSON.stringify(context)}${promptContext}\n\nTENDER DOCUMENTS:\n${clipped}`, 3000);
-    return Response.json({ result, provider: providerLabel(), chars: text.length, truncated: text.length > MAX_CHARS });
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : "unknown";
-    return Response.json({ error: msg === "no_credentials" ? "No AI provider configured" : msg }, { status: 502 });
+      const analysis = await completeJSON<Record<string, string>>(SYSTEM, `${DOC_SCHEMA}\n\nDOCUMENT "${name}":\n${clipped}`, 1500);
+      return Response.json({ name, text, analysis, provider: providerLabel() });
+    } catch (e) { return Response.json({ error: e instanceof Error ? e.message : "analysis failed" }, { status: 502 }); }
   }
+
+  // ---- full verified tender review (streams progress, then the result)
+  return stream(req, async (send, aborted) => {
+    const result = await runVerifiedPipeline(text, name, { depth, aborted }, (e) => send(e));
+    send({ type: "result", result, provider: providerLabel(), chars: text.length });
+  });
 }

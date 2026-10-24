@@ -6,17 +6,19 @@ import { Menu, X } from "lucide-react";
 import { brand } from "@/config/brand";
 import { cn } from "@/lib/cn";
 import { ThemeControls } from "./Theme";
+import { useI18n, MarketingLanguageToggle } from "@/lib/i18n";
 
 const links = [
-  { href: "/platform", label: "Platform" },
-  { href: "/industries", label: "Industries" },
-  { href: "/crm", label: "CRM" },
-  { href: "/pricing", label: "Pricing" },
-  { href: "/what-we-do", label: "About" },
+  { href: "/platform", key: "Platform" },
+  { href: "/industries", key: "Industries" },
+  { href: "/crm", key: "CRM" },
+  { href: "/pricing", key: "Pricing" },
+  { href: "/what-we-do", key: "About" },
 ];
 
 export function Nav() {
   const pathname = usePathname();
+  const { t } = useI18n();
   const [depth, setDepth] = useState(0);
   const [open, setOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
@@ -44,23 +46,30 @@ export function Nav() {
             <span className="eyebrow text-ink">{brand.company.toUpperCase()}</span>
           </Link>
         </div>
-        <nav className="hidden items-center gap-7 md:flex">
+        <nav className="hidden items-center gap-6 md:flex">
           {links.map((l) => (
-            <Link key={l.href} href={l.href} className={cn("text-[15px] text-ink/80 hover:text-ink", pathname.startsWith(l.href) && "text-accent")}>
-              {l.label}
+            <Link key={l.href} href={l.href} className={cn("text-[15px] text-ink/80 hover:text-ink font-medium", pathname.startsWith(l.href) && "text-accent")}>
+              {t(l.key)}
             </Link>
           ))}
-          <Link href="/sign-in" className="text-[15px] text-ink/80 hover:text-ink">Login</Link>
+          <Link href="/sign-in" className="text-[15px] text-ink/80 hover:text-ink font-medium">{t("Login")}</Link>
+          <MarketingLanguageToggle />
           <ThemeControls />
-          <Link href="/sign-up" className="rounded-full bg-accent px-4 py-2 text-sm text-white shadow-[0_8px_24px_-10px_var(--bravo-accent)] transition-transform hover:scale-[1.03]">Get Started</Link>
+          <Link href="/sign-up" className="rounded-full bg-accent px-4 py-2 text-sm text-white shadow-[0_8px_24px_-10px_var(--bravo-accent)] transition-transform hover:scale-[1.03] font-medium">{t("Get Started")}</Link>
         </nav>
-        <div className="flex items-center gap-2 md:hidden"><ThemeControls compact /><button onClick={() => setOpen(!open)} aria-label="Menu">{open ? <X /> : <Menu />}</button></div>
+        <div className="flex items-center gap-2 md:hidden">
+          <MarketingLanguageToggle />
+          <ThemeControls compact />
+          <button onClick={() => setOpen(!open)} aria-label="Menu">{open ? <X /> : <Menu />}</button>
+        </div>
       </div>
       {open && (
         <div className="border-t border-line bg-cream px-4 py-4 md:hidden">
-          {[...links, { href: "/sign-in", label: "Login" }, { href: "/sign-up", label: "Get Started" }].map((l) => (
-            <Link key={l.href} href={l.href} onClick={() => setOpen(false)} className="block py-2 text-ink">{l.label}</Link>
+          {links.map((l) => (
+            <Link key={l.href} href={l.href} onClick={() => setOpen(false)} className="block py-2 text-ink font-medium">{t(l.key)}</Link>
           ))}
+          <Link href="/sign-in" onClick={() => setOpen(false)} className="block py-2 text-ink font-medium">{t("Login")}</Link>
+          <Link href="/sign-up" onClick={() => setOpen(false)} className="block py-2 text-accent font-semibold">{t("Get Started")}</Link>
         </div>
       )}
     </header>
