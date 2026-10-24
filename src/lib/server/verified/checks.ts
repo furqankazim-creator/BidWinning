@@ -3,6 +3,7 @@
  * Nothing here calls a model; every finding states exactly where it was found.
  */
 import { STANDARDS_API } from "./extract";
+import { serviceHeaders } from "../guard";
 import type { CodeCite, Parsed } from "./structure";
 import type { CodeKind } from "./codes";
 import { alnum } from "./structure";
@@ -16,7 +17,7 @@ export interface Issue { id: string; kind: string; severity: "High" | "Medium" |
 export interface LibraryInfo { version: number; rows: number; indexedAt: string; files: number; standardFiles: number; codedStandards: number; unavailable?: string; }
 
 const post = async <T>(path: string, body: unknown, ms = 120_000): Promise<T> => {
-  const res = await fetch(`${STANDARDS_API}/api/standards/v${path}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body), signal: AbortSignal.timeout(ms) });
+  const res = await fetch(`${STANDARDS_API}/api/standards/v${path}`, { method: "POST", headers: { "content-type": "application/json", ...serviceHeaders() }, body: JSON.stringify(body), signal: AbortSignal.timeout(ms) });
   const j = await res.json().catch(() => ({}));
   if (!res.ok || j.success === false) throw new Error(j.error || `library HTTP ${res.status}`);
   return j as T;
@@ -24,7 +25,7 @@ const post = async <T>(path: string, body: unknown, ms = 120_000): Promise<T> =>
 
 export async function libraryInfo(): Promise<LibraryInfo> {
   try {
-    const res = await fetch(`${STANDARDS_API}/api/standards/v/library-info`, { signal: AbortSignal.timeout(60_000) });
+    const res = await fetch(`${STANDARDS_API}/api/standards/v/library-info`, { headers: serviceHeaders(), signal: AbortSignal.timeout(60_000) });
     const j = await res.json();
     if (!res.ok || !j.success) throw new Error(j.error || `HTTP ${res.status}`);
     return j as LibraryInfo;

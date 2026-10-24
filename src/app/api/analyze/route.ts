@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { guard } from "@/lib/server/guard";
 import { completeJSON, provider, providerLabel } from "@/lib/server/llm";
 import { extractFile } from "@/lib/server/verified/extract";
 import { runVerifiedPipeline } from "@/lib/server/verified/pipeline";
@@ -32,6 +33,7 @@ function stream(req: NextRequest, run: (send: (o: unknown) => void, aborted: () 
 }
 
 export async function POST(req: NextRequest) {
+  const denied = await guard(req, "analyze", 10); if (denied) return denied;
   const ct = req.headers.get("content-type") || "";
   let text = "", name = "document", mode = "tender"; let context: Record<string, unknown> = {}; let depth: "standard" | "deep" = "standard";
 

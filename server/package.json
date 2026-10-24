@@ -8,7 +8,7 @@
     "dev:memory": "USE_MEMORY_DB=1 tsx watch src/index.ts",
     "build": "tsc -p tsconfig.json",
     "start": "node dist/index.js",
-    "test": "USE_MEMORY_DB=1 PORT=4999 tsx src/smoke.ts"
+    "test": "USE_MEMORY_DB=1 INTERNAL_API_KEY=smoke-test-key DISABLE_RATE_LIMIT=1 PORT=4999 tsx src/smoke.ts"
   },
   "dependencies": {
     "@lancedb/lancedb": "0.22.3",

@@ -8,6 +8,7 @@ import * as seed4 from "./seed4";
 import { goNoGoCriteria, type IndustryTemplate } from "@/lib/industries";
 import { pushAudit } from "./sync";
 import type * as T from "./types";
+import { authFetch } from "@/lib/authFetch";
 
 const uid = () => Math.random().toString(36).slice(2, 10);
 
@@ -198,7 +199,7 @@ export const useStore = create<State>()(
           set((s) => ({ docs: [...s.docs, { id, tenderId: tid, name: f.name, size: f.size, rev: 0, kind: guessKind(f.name), status: "PROCESSING", uploadedAt: new Date().toISOString(), uploadedBy: s.currentUser, language: "English", confidentiality: "Internal", progress: "Reading…" }] }));
           try {
             const fd = new FormData(); fd.append("file", f); fd.append("mode", "extract");
-            const res = await fetch("/api/analyze", { method: "POST", body: fd });
+            const res = await authFetch("/api/analyze", { method: "POST", body: fd });
             const j = await readNdjson<{ text: string; pages: number; ocr?: T.Doc["ocr"] }>(res, (e) => set((s) => ({ docs: patchIn(s.docs, id, { progress: e.stage === "ocr" ? `OCR ${e.done ?? 0}/${e.total ?? "?"}` : e.stage === "merge" ? "Merging OCR…" : "Reading text layer…" }) })));
             set((s) => ({ docs: patchIn(s.docs, id, { status: "INDEXED", text: String(j.text || "").slice(0, 900_000), pages: j.pages, ocr: j.ocr, progress: undefined }) }));
             get().audit("Uploaded", "Document", id, `${f.name} · ${j.pages} page(s)${j.ocr?.used ? ` · OCR recovered ${j.ocr.recoveredLines} line(s)` : ""}`);
@@ -211,7 +212,7 @@ export const useStore = create<State>()(
         const d = get().docs.find((x) => x.id === id); if (!d) return "Document not found";
         if (!d.text) return "No extracted text for this document — re-upload it so it can be indexed.";
         try {
-          const res = await fetch("/api/analyze", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ mode: "document", name: d.name, text: d.text }) });
+          const res = await authFetch("/api/analyze", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ mode: "document", name: d.name, text: d.text }) });
           const j = await res.json(); if (!res.ok) return j.error || `HTTP ${res.status}`;
           set((s) => ({ docs: patchIn(s.docs, id, { analysis: j.analysis }) }));
           get().logAI({ model: j.provider, promptVersion: "doc-analyze v3", task: "Document analysis", sources: [d.name], input: "Extract general information", outputSummary: `${Object.keys(j.analysis || {}).length} fields`, confidence: "Medium", reviewStatus: "Pending" });
@@ -227,7 +228,7 @@ export const useStore = create<State>()(
         try {
           const text = docs.map((d) => `===== DOCUMENT: ${d.name} =====\n${d.text}`).join("\n\n");
           const context = { organisation: s0.org.name, capabilities: s0.capabilities.map((c) => `${c.name}: ${c.value}`), industryHint: t.industry, tenderName: t.name };
-          const res = await fetch("/api/analyze", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ mode: "tender", name: t.name, text, context, depth }) });
+          const res = await authFetch("/api/analyze", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ mode: "tender", name: t.name, text, context, depth }) });
           const j = await readNdjson<{ result: Record<string, any>; provider: string; chars: number }>(res, (e) => set((st) => ({ analysisProgress: { pct: e.pct != null && e.pct >= 0 ? e.pct : st.analysisProgress?.pct ?? 0, stage: e.stage || "", msg: e.msg || "" } }))); // eslint-disable-line @typescript-eslint/no-explicit-any
           const r = j.result; const report = r.report as T.VerifiedReport;
           const now = new Date().toISOString(); const src = docs[0].name;
@@ -321,7 +322,7 @@ export const useStore = create<State>()(
         set((s) => ({ chatBusy: true, chat: [...s.chat, { id: uid(), tenderId: tid, agent, role: "user", text, at: now }, { id: replyId, tenderId: tid, agent, role: "assistant", text: "", at: now, streaming: true }] }));
         const append = (chunk: string, done = false, simulated = false) => set((s) => ({ chat: s.chat.map((m) => (m.id === replyId ? { ...m, text: m.text + chunk, streaming: !done, simulated: simulated || m.simulated } : m)), chatBusy: !done }));
         try {
-          const res = await fetch("/api/chat", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ agent, messages: [...history, { role: "user", text }], context: chatContext(get()) }) });
+          const res = await authFetch("/api/chat", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ agent, messages: [...history, { role: "user", text }], context: chatContext(get()) }) });
           if (res.status === 503) { append(mockReply(agent, text, get()), true, true); return; }
           if (!res.ok || !res.body) { append(`[Chat service error ${res.status}]`, true); return; }
           const provider = res.headers.get("x-provider") || "unknown";
@@ -418,7 +419,7 @@ export const useStore = create<State>()(
           : { requirements: st.requirements.filter((r) => r.tenderId === tenderId).slice(0, 40).map((r) => r.text), risks: scoped(st.risks, tenderId).map((r) => `${r.title}: ${r.mitigation}`), deliverables: scoped(st.deliverables, tenderId).map((d) => d.name), capabilities: st.capabilities.map((c) => `${c.name}: ${c.value}`), engineering: Object.fromEntries(Object.entries(t?.metadata || {}).filter(([k]) => k.startsWith("eng:") && !k.endsWith(":status"))) };
         set({ analysisBusy: true });
         try {
-          const res = await fetch("/api/analyze", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ mode: "draft", name: t?.name, text: docs.map((d) => d.text).join("\n\n"), context: { kind: `${kind} proposal`, sections: wanted, tender: t && { name: t.name, client: t.client, reference: t.reference, industry: t.industry, service: t.service, description: t.description, metadata: t.metadata }, facts } }) });
+          const res = await authFetch("/api/analyze", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ mode: "draft", name: t?.name, text: docs.map((d) => d.text).join("\n\n"), context: { kind: `${kind} proposal`, sections: wanted, tender: t && { name: t.name, client: t.client, reference: t.reference, industry: t.industry, service: t.service, description: t.description, metadata: t.metadata }, facts } }) });
           const j = await res.json(); if (!res.ok) return j.error || `HTTP ${res.status}`;
           const map = new Map<string, string>((j.sections || []).map((x: { title: string; body: string }) => [x.title, x.body]));
           set((s) => { let n = s.proposalSections.filter((x) => x.tenderId === tenderId && x.kind === kind).length; return { proposalSections: [...s.proposalSections, ...wanted.map((title) => ({ id: uid(), tenderId, kind, title, body: map.get(title) || "[AI DRAFT — the model returned no text for this section; write it manually]", status: "AI Draft" as const, order: ++n }))] }; });
@@ -431,7 +432,7 @@ export const useStore = create<State>()(
         const docs = scoped(st.docs, tenderId).filter((d) => d.status === "INDEXED" && d.text);
         set({ analysisBusy: true });
         try {
-          const res = await fetch("/api/analyze", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ mode: "draft", name: t.name, text: docs.map((d) => d.text).join("\n\n"), context: { kind: "engineering workspace inputs (scope, method, standards, deliverables)", sections, tender: { name: t.name, client: t.client, industry: t.industry, service: t.service, description: t.description, metadata: Object.fromEntries(Object.entries(t.metadata).filter(([k]) => !k.startsWith("eng:"))) }, facts: { requirements: st.requirements.filter((r) => r.tenderId === tenderId && r.category === "Technical").map((r) => r.text) } } }) });
+          const res = await authFetch("/api/analyze", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ mode: "draft", name: t.name, text: docs.map((d) => d.text).join("\n\n"), context: { kind: "engineering workspace inputs (scope, method, standards, deliverables)", sections, tender: { name: t.name, client: t.client, industry: t.industry, service: t.service, description: t.description, metadata: Object.fromEntries(Object.entries(t.metadata).filter(([k]) => !k.startsWith("eng:"))) }, facts: { requirements: st.requirements.filter((r) => r.tenderId === tenderId && r.category === "Technical").map((r) => r.text) } } }) });
           const j = await res.json(); if (!res.ok) return j.error || `HTTP ${res.status}`;
           const meta = { ...t.metadata }; for (const sct of j.sections || []) { if (!meta[`eng:${sct.title}`]) { meta[`eng:${sct.title}`] = `[AI DRAFT] ${sct.body}`; meta[`eng:${sct.title}:status`] = meta[`eng:${sct.title}:status`] || "In progress"; } }
           set((s) => ({ tenders: patchIn(s.tenders, tenderId, { metadata: meta }) }));

@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { guard } from "@/lib/server/guard";
 import ExcelJS from "exceljs";
 import type { VerifiedReport, Requirement, ComplianceItem } from "@/store/types";
 import type { ReportScore } from "@/lib/reportScore";
@@ -34,6 +35,7 @@ function sheet(wb: ExcelJS.Workbook, name: string, cols: { header: string; key: 
 }
 
 export async function POST(req: NextRequest) {
+  const denied = await guard(req, "xlsx", 20); if (denied) return denied;
   let d: Payload;
   try { d = await req.json(); } catch { return Response.json({ error: "invalid payload" }, { status: 400 }); }
   const wb = new ExcelJS.Workbook(); wb.creator = "BidWinning"; wb.created = new Date();

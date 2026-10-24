@@ -33,5 +33,10 @@ try {
   const set = await j("/api/data/settings", { method: "PUT", token: tok, body: JSON.stringify({ margin: 14 }) }); assert(set.body.margin === 14, "settings upsert");
   const au = await j("/api/org/audit", { token: tok }); assert(au.body.some((a: { action: string }) => a.action === "Invited"), "audit trail records invite");
   const noauth = await j("/api/data/state"); assert(noauth.status === 401, "unauthenticated rejected");
+  const st401 = await j("/api/standards/stats"); assert(st401.status === 401, "standards library requires login");
+  const ocr401 = await j("/api/ocr/status"); assert(ocr401.status === 401, "OCR requires login");
+  const svc = await j("/api/standards/stats", { headers: { "x-service-key": "wrong-key" } }); assert(svc.status === 401, "wrong service key rejected");
+  const svcOk = await j("/api/standards/stats", { headers: { "x-service-key": process.env.INTERNAL_API_KEY! } }); assert(svcOk.status !== 401, "service key accepted");
+  const userOk = await j("/api/standards/stats", { token: tok }); assert(userOk.status !== 401, "logged-in user can use standards library");
   console.log("\nALL SMOKE TESTS PASSED");
 } finally { server.close(); process.exit(0); }

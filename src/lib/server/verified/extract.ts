@@ -1,5 +1,6 @@
 import { OCR_MARK, boilerplateSet, mergePage, vocabulary } from "./ocr-merge";
 
+import { serviceHeaders } from "../guard";
 export const STANDARDS_API = process.env.STANDARDS_API_URL || "http://localhost:4005";
 
 export interface OcrStats { available: boolean; used: boolean; pagesOcred: number; recoveredLines: number; unusablePages: number[]; avgConfidence: number; note?: string; }
@@ -35,7 +36,7 @@ async function ocrPdfLive(buf: Buffer, name: string, pages: string, hiPages: str
   form.append("pages", pages);
   if (hiPages) form.append("hiPages", hiPages);
   let res: Response;
-  try { res = await fetch(`${STANDARDS_API}/api/ocr/pdf`, { method: "POST", body: form }); }
+  try { res = await fetch(`${STANDARDS_API}/api/ocr/pdf`, { method: "POST", body: form, headers: serviceHeaders() }); }
   catch (e) { return { pages: out, error: `OCR service not reachable at ${STANDARDS_API} (${e instanceof Error ? e.message : "fetch failed"})` }; }
   if (!res.ok || !res.body) { const j = await res.json().catch(() => ({})); return { pages: out, error: j.error || `OCR service HTTP ${res.status}` }; }
   const reader = res.body.getReader(); const dec = new TextDecoder(); let buffer = ""; let total = 0; let error: string | undefined;

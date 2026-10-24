@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Database, FileText, Folder, RefreshCw } from "lucide-react";
+import { authFetch } from "@/lib/authFetch";
 
 interface DatabaseRow {
   standardName: string;
@@ -17,13 +18,13 @@ export default function DatabaseExplorer() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const statsRes = await fetch("/api/standards/stats");
+      const statsRes = await authFetch("/api/standards/stats");
       const statsData = await statsRes.json();
       if (statsData.success) {
         setStats({ totalRules: statsData.totalRules });
       }
 
-      const dataRes = await fetch("/api/standards/data?limit=2000");
+      const dataRes = await authFetch("/api/standards/data?limit=2000");
       const dataData = await dataRes.json();
       if (dataData.success) {
         setData(dataData.data);

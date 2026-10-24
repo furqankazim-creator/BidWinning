@@ -4,6 +4,7 @@ import { FileSpreadsheet } from "lucide-react";
 import { Button } from "@/components/ui";
 import { useStore, tenderHealth, scoped } from "@/store/useStore";
 import { reportScore, type ReportScore } from "@/lib/reportScore";
+import { authFetch } from "@/lib/authFetch";
 
 /** The one place that turns store records into the Report Score — used by the page, the PDF and the Excel export. */
 export function useReportScore(tenderId: string): ReportScore | null {
@@ -33,7 +34,7 @@ export function ExcelButton({ tenderId }: { tenderId: string }) {
         clarifications: scoped(s.clarifications, tenderId).map((c) => ({ title: c.title, analysis: c.analysis, category: c.category, status: c.status, ref: c.ref })),
         deliverables: scoped(s.deliverables, tenderId).map((d) => ({ name: d.name, type: d.type, status: d.status })), contractTerms: sum.contractTerms,
       };
-      const res = await fetch("/api/report/xlsx", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) });
+      const res = await authFetch("/api/report/xlsx", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) });
       if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || `HTTP ${res.status}`);
       const url = URL.createObjectURL(await res.blob()); const a = document.createElement("a");
       a.href = url; a.download = `BidWinning_${t.name.replace(/[^A-Za-z0-9._-]+/g, "_").slice(0, 60)}_analysis.xlsx`; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);

@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest } from "next/server";
+import { guard } from "@/lib/server/guard";
 import { groqFetch, groqKeys, groqModel } from "@/lib/server/groq";
 
 export const runtime = "nodejs";
@@ -16,6 +17,7 @@ const personas: Record<string, string> = {
 };
 
 export async function POST(req: NextRequest) {
+  const denied = await guard(req, "chat", 30); if (denied) return denied;
   const { agent, messages, context } = (await req.json()) as { agent: string; messages: { role: "user" | "assistant"; text: string }[]; context: unknown };
   const hasAnthropic = !!(process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_AUTH_TOKEN);
   const hasGroq = groqKeys().length > 0;

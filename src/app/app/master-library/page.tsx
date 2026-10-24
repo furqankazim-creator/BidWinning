@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Search, Loader2, ShieldCheck, ShieldAlert, UploadCloud } from "lucide-react";
 import { Card, Button, Input, PageHeader, Label } from "@/components/ui";
+import { authFetch } from "@/lib/authFetch";
 
 export default function MasterLibraryPage() {
   const [proposal, setProposal] = useState("We will use DIN standard pipe fittings for the fire water system.");
@@ -18,7 +19,7 @@ export default function MasterLibraryPage() {
     setLoading(true);
     setResult(null);
     try {
-      const res = await fetch("/api/standards/evaluate", {
+      const res = await authFetch("/api/standards/evaluate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ proposal, folder: "Saudi Aramco Standards" })
@@ -42,7 +43,7 @@ export default function MasterLibraryPage() {
       formData.append("file", file);
       formData.append("folder", "Saudi Aramco Standards"); // Or allow selection
 
-      const res = await fetch("/api/standards/evaluate-file", {
+      const res = await authFetch("/api/standards/evaluate-file", {
         method: "POST",
         body: formData
       });
