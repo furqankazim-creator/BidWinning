@@ -9,7 +9,10 @@ const api = () => process.env.STANDARDS_API_URL || "http://localhost:4005";
 const demo = () => !process.env.NEXT_PUBLIC_API_URL && process.env.NODE_ENV !== "production";
 
 /** Headers for server-to-server calls from this Next.js server to the Express API. */
-export const serviceHeaders = (): Record<string, string> => (process.env.INTERNAL_API_KEY ? { "x-service-key": process.env.INTERNAL_API_KEY } : {});
+export const serviceHeaders = (): Record<string, string> => {
+  const key = process.env.INTERNAL_API_KEY || (process.env.NODE_ENV === "production" ? "" : "dev-internal-key"); // must match the API's local-dev fallback
+  return key ? { "x-service-key": key } : {};
+};
 
 const okTokens = new Map<string, number>();
 const hits = new Map<string, number[]>();

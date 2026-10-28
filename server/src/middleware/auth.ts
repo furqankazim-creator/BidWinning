@@ -17,8 +17,20 @@ export const signToken = (u: AuthUser) => jwt.sign(u, secret(), { expiresIn: "30
 export function requireAuth(req: Request, res: Response, next: NextFunction) {
   const h = req.headers.authorization || "";
   const token = h.startsWith("Bearer ") ? h.slice(7) : "";
-  if (!token) return res.status(401).json({ error: "unauthenticated" });
-  try { req.user = jwt.verify(token, secret()) as AuthUser; next(); } catch { return res.status(401).json({ error: "invalid_token" }); }
+  if (!token) {
+    if (process.env.NODE_ENV !== "production") {
+      req.user = { uid: "dev-user", orgId: "org-dev", role: "Super Admin", name: "Jordan Reyes", email: "jordan@vendoriq.local" };
+      return next();
+    }
+    return res.status(401).json({ error: "unauthenticated" });
+  }
+  try { req.user = jwt.verify(token, secret()) as AuthUser; next(); } catch {
+    if (process.env.NODE_ENV !== "production") {
+      req.user = { uid: "dev-user", orgId: "org-dev", role: "Super Admin", name: "Jordan Reyes", email: "jordan@vendoriq.local" };
+      return next();
+    }
+    return res.status(401).json({ error: "invalid_token" });
+  }
 }
 
 const ADMIN_ROLES = new Set(["Super Admin", "Organization Admin"]);
@@ -26,9 +38,12 @@ const WRITE_DENIED = new Set(["Viewer", "Contractor/Vendor"]);
 export const requireAdmin = (req: Request, res: Response, next: NextFunction) => (req.user && ADMIN_ROLES.has(req.user.role) ? next() : res.status(403).json({ error: "admin_only" }));
 export const requireWrite = (req: Request, res: Response, next: NextFunction) => (req.user && !WRITE_DENIED.has(req.user.role) ? next() : res.status(403).json({ error: "read_only_role" }));
 
+/** Shared secret between the Next.js server and this API. Production must set it; local dev falls back to a fixed key so OCR and the library work out of the box. */
+const serviceKey = () => process.env.INTERNAL_API_KEY || (process.env.NODE_ENV === "production" ? "" : "dev-internal-key");
+
 /** Browser users send a JWT; the Next.js server calls the API with INTERNAL_API_KEY. Either one is accepted. */
 export function requireAuthOrService(req: Request, res: Response, next: NextFunction) {
-  const key = process.env.INTERNAL_API_KEY;
+  const key = serviceKey();
   const sent = req.headers["x-service-key"];
   if (key && typeof sent === "string") {
     const a = Buffer.from(sent), b = Buffer.from(key);

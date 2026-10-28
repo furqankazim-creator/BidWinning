@@ -78,6 +78,11 @@ interface State {
   deleteDoc: (id: string) => void; updateDoc: (id: string, p: Partial<T.Doc>) => void;
   uploadDocs: (files: File[]) => Promise<void>;
   analyzeDocument: (id: string) => Promise<string | null>;
+  /** Read quantities from a SOW / BOQ / MTO document into doc.takeoff (all items start as Needs Verification). */
+  extractTakeoff: (docId: string) => Promise<string | null>;
+  updateTakeoffItems: (docId: string, ids: string[], patch: Partial<T.TakeoffItem>) => void;
+  /** Send approved, not-yet-sent takeoff items to the tender's cost lines. Returns how many were added. */
+  pushTakeoffToPricing: (docId: string) => number;
   runTenderAnalysis: (tenderId: string, depth?: "standard" | "deep") => Promise<string | null>;
   analysisBusy: boolean;
   analysisProgress: { pct: number; stage: string; msg: string } | null;
@@ -207,6 +212,36 @@ export const useStore = create<State>()(
             set((s) => ({ docs: patchIn(s.docs, id, { status: "FAILED", progress: undefined, analysis: { Error: e instanceof Error ? e.message : "extraction failed" } }) }));
           }
         }
+      },
+      extractTakeoff: async (docId) => {
+        const d = get().docs.find((x) => x.id === docId); if (!d) return "Document not found";
+        if (!d.text) return "No extracted text for this document — re-upload it so it can be indexed.";
+        set((s) => ({ docs: patchIn(s.docs, docId, { progress: "Reading quantities…" }) }));
+        try {
+          const res = await authFetch("/api/analyze", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ mode: "takeoff", name: d.name, text: d.text }) });
+          const j = await readNdjson<{ items: T.TakeoffItem[]; warnings: string[]; pagesRead: number; pagesSkipped: number; provider: string }>(res, (e) => set((s) => ({ docs: patchIn(s.docs, docId, { progress: e.msg || "Reading quantities…" }) })));
+          const tk: T.Takeoff = { items: j.items, at: new Date().toISOString(), model: j.provider, warnings: j.warnings || [], pagesRead: j.pagesRead, pagesSkipped: j.pagesSkipped };
+          set((s) => ({ docs: patchIn(s.docs, docId, { takeoff: tk, progress: undefined }) }));
+          get().audit("Takeoff extracted", "Document", docId, `${d.name} · ${tk.items.length} item(s) awaiting verification`);
+          get().logAI({ model: j.provider, promptVersion: "sow-takeoff v1", task: "SOW quantity takeoff", sources: [d.name], input: "Extract explicit quantities", outputSummary: `${tk.items.length} items, ${tk.warnings.length} warning(s)`, confidence: "Medium", reviewStatus: "Pending" });
+          return null;
+        } catch (e) {
+          set((s) => ({ docs: patchIn(s.docs, docId, { progress: undefined }) }));
+          const m = e instanceof Error ? e.message : "takeoff failed";
+          return m === "no_credentials" ? "No AI key configured on the server — spreadsheets (BOQ/MTO .xlsx) still work; PDF/Word need ANTHROPIC_API_KEY or GROQ_API_KEYS." : m;
+        }
+      },
+      updateTakeoffItems: (docId, ids, patch) => set((s) => ({ docs: s.docs.map((d) => d.id !== docId || !d.takeoff ? d : { ...d, takeoff: { ...d.takeoff, items: d.takeoff.items.map((i) => ids.includes(i.id) ? { ...i, ...patch } : i) } }) })),
+      pushTakeoffToPricing: (docId) => {
+        const d = get().docs.find((x) => x.id === docId); if (!d?.takeoff) return 0;
+        const todo = d.takeoff.items.filter((i) => i.status === "Verified" && !i.pushed); if (!todo.length) return 0;
+        const base = get().costLines.filter((c) => c.tenderId === get().activeTenderId).length;
+        set((s) => ({
+          costLines: [...s.costLines, ...todo.map((i, ix) => ({ id: uid(), tenderId: s.activeTenderId, wbs: `${base + ix + 1}.1`, description: `${i.code}: ${i.description}`, category: "Material", qty: i.qty, unit: i.unit, rate: i.rate, contingency: 0 }))],
+          docs: s.docs.map((x) => x.id !== docId || !x.takeoff ? x : { ...x, takeoff: { ...x.takeoff, pushedAt: new Date().toISOString(), items: x.takeoff.items.map((i) => todo.some((t) => t.id === i.id) ? { ...i, pushed: true } : i) } }),
+        }));
+        get().audit("Takeoff pushed to pricing", "Document", docId, `${todo.length} approved line(s) from ${d.name}`);
+        return todo.length;
       },
       analyzeDocument: async (id) => {
         const d = get().docs.find((x) => x.id === id); if (!d) return "Document not found";

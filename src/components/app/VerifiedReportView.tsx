@@ -1,6 +1,6 @@
 "use client";
 import { useMemo, useState } from "react";
-import { ShieldCheck, ShieldAlert, FileSearch, BookMarked, Brain, CheckCircle2, XCircle, AlertTriangle, ScanText } from "lucide-react";
+import { ShieldCheck, ShieldAlert, FileSearch, BookMarked, Brain, CheckCircle2, XCircle, AlertTriangle, ScanText, FileText } from "lucide-react";
 import { Card, Badge, Button, Input, Label, SectionTitle, Select } from "@/components/ui";
 import { useStore } from "@/store/useStore";
 import type { VFinding, VIssue, VRegistryItem } from "@/store/types";
@@ -17,8 +17,19 @@ const Check = ({ ok, label }: { ok: boolean | null; label: string }) => ok === n
 export function VerifiedReportView({ tenderId }: { tenderId: string }) {
   const s = useStore(); const sum = s.aiSummaries.find((x) => x.tenderId === tenderId); const rep = sum?.report; const sc = useReportScore(tenderId);
   const [filter, setFilter] = useState("all"); const [regFilter, setRegFilter] = useState("all"); const [regQ, setRegQ] = useState(""); const [showAllReg, setShowAllReg] = useState(false);
+  const [docFilter, setDocFilter] = useState("all");
   const findings = rep?.findings || [];
-  const shown = useMemo(() => findings.filter((f) => filter === "all" ? true : filter === "review" ? f.needsReview : filter === "pending" ? !rep?.approvals[f.id] : filter === "Conflicts" ? f.verdict === "Conflicts" : filter === "Conforms" ? f.verdict === "Conforms" : filter === "Reference" ? f.verdict === "Reference only" : f.verdict === "Not covered in library"), [findings, filter, rep]);
+  const docList = useMemo(() => Array.from(new Set(findings.map((f) => f.doc).filter(Boolean))), [findings]);
+  const shown = useMemo(() => findings.filter((f) => {
+    if (docFilter !== "all" && f.doc !== docFilter) return false;
+    if (filter === "all") return true;
+    if (filter === "review") return f.needsReview;
+    if (filter === "pending") return !rep?.approvals[f.id];
+    if (filter === "Conflicts") return f.verdict === "Conflicts";
+    if (filter === "Conforms") return f.verdict === "Conforms";
+    if (filter === "Reference") return f.verdict === "Reference only";
+    return f.verdict === "Not covered in library";
+  }), [findings, filter, docFilter, rep]);
   const reg = useMemo(() => (rep?.registry || []).filter((r) => (regFilter === "all" || r.status === regFilter) && (!regQ || r.code.toLowerCase().includes(regQ.toLowerCase()) || r.titleInTender.toLowerCase().includes(regQ.toLowerCase()))), [rep, regFilter, regQ]);
   if (!rep) return sum ? <Card className="p-4 text-xs text-app-muted">This analysis was produced by an older version without library verification. Re-analyse the documents to produce the verified report.</Card> : null;
   const approved = Object.values(rep.approvals).filter((a) => a.decision === "Approved").length; const rejected = Object.values(rep.approvals).filter((a) => a.decision === "Rejected").length;
@@ -46,14 +57,38 @@ export function VerifiedReportView({ tenderId }: { tenderId: string }) {
       <div>
         <SectionTitle right={<span className="text-[11px] text-app-dim">{approved} approved · {rejected} rejected · {findings.length - approved - rejected} pending</span>}>Library-checked findings</SectionTitle>
         <div className="mb-2 flex flex-wrap items-center gap-2 text-xs">
-          <Select value={filter} onChange={(e) => setFilter(e.target.value)} className="py-1 text-xs"><option value="all">All ({findings.length})</option><option value="review">Needs review ({findings.filter((f) => f.needsReview).length})</option><option value="pending">Pending approval</option><option value="Conflicts">Conflicts ({rep.stats.conflicts})</option><option value="Conforms">Conforms ({rep.stats.conforms})</option><option value="Reference">Reference only ({rep.stats.referenceOnly || 0})</option><option value="Not covered">Not covered in library ({rep.stats.notCovered})</option></Select>
-          <span className="text-app-dim">Verdicts come only from the retrieved library text. “Reference only” = the tender just cites the standard (its obligations are inherited); “Not covered” = no rule in your library addresses the requirement — never a guess.</span>
+          {docList.length > 1 && (
+            <Select value={docFilter} onChange={(e) => setDocFilter(e.target.value)} className="py-1 text-xs font-medium">
+              <option value="all">All documents ({findings.length})</option>
+              {docList.map((d) => (
+                <option key={d} value={d}>
+                  {d} ({findings.filter((f) => f.doc === d).length})
+                </option>
+              ))}
+            </Select>
+          )}
+          <Select value={filter} onChange={(e) => setFilter(e.target.value)} className="py-1 text-xs"><option value="all">All verdicts ({findings.length})</option><option value="review">Needs review ({findings.filter((f) => f.needsReview).length})</option><option value="pending">Pending approval</option><option value="Conflicts">Conflicts ({rep.stats.conflicts})</option><option value="Conforms">Conforms ({rep.stats.conforms})</option><option value="Reference">Reference only ({rep.stats.referenceOnly || 0})</option><option value="Not covered">Not covered in library ({rep.stats.notCovered})</option></Select>
+          <span className="text-app-dim">Verdicts come only from the retrieved library text. “Reference only” = the tender just cites the standard; “Not covered” = no rule in your library addresses the requirement.</span>
         </div>
         <Card className="divide-y divide-app-border">
           {shown.length === 0 && <p className="p-4 text-xs text-app-dim">No findings match this filter.</p>}
           {shown.map((f) => { const ap = rep.approvals[f.id]; return (
             <div key={f.id} className="grid gap-3 px-4 py-3 text-[13px] lg:grid-cols-[1fr_1fr_auto]">
-              <div><div className="mb-1 flex flex-wrap items-center gap-2"><Badge tone={vTone(f.verdict)}>{f.verdict}</Badge><span className="font-mono text-[11px] text-app-dim">p.{f.page} · §{f.section} · {f.category}</span>{f.ocr && <Badge tone="yellow">OCR</Badge>}</div><p className="text-app-text">“{f.quote.length > 320 ? f.quote.slice(0, 320) + "…" : f.quote}”</p></div>
+              <div>
+                <div className="mb-1 flex flex-wrap items-center gap-2">
+                  <Badge tone={vTone(f.verdict)}>{f.verdict}</Badge>
+                  {f.doc && (
+                    <span title={f.doc}>
+                      <Badge tone="outline" className="text-[10px] text-app-accent flex items-center gap-1 max-w-[200px] truncate">
+                        <FileText size={10} /> {f.doc}
+                      </Badge>
+                    </span>
+                  )}
+                  <span className="font-mono text-[11px] text-app-dim">p.{f.page} · §{f.section} · {f.category}</span>
+                  {f.ocr && <Badge tone="yellow">OCR</Badge>}
+                </div>
+                <p className="text-app-text">“{f.quote.length > 320 ? f.quote.slice(0, 320) + "…" : f.quote}”</p>
+              </div>
               <div>
                 {f.standardName ? <><p className="text-[11px] font-semibold text-app-accent">{f.standardName}</p><p className="mt-0.5 text-[12px] italic text-app-muted">“{f.ruleQuote}”</p></> : null}
                 <p className="mt-1 text-[12px] text-app-text">{f.reasoning}</p>

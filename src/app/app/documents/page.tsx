@@ -1,11 +1,10 @@
 "use client";
 import { useRef, useState, useEffect } from "react";
 import Link from "next/link";
-import { CloudUpload, FileText, FolderOpen, Trash2, HardDrive, Sparkles, History, Lock, Layers, Languages } from "lucide-react";
+import { CloudUpload, FileText, FolderOpen, Trash2, HardDrive, Sparkles, History, Lock, Languages } from "lucide-react";
 import { Button, Card, Badge, PageHeader, Select, Modal, Label, Input } from "@/components/ui";
 import { useScopedStore, useStore } from "@/store/useStore";
 import { useIndustry } from "@/lib/useIndustries";
-import { SOWTakeoffWorkbench } from "@/components/app/SOWTakeoffWorkbench";
 import type { Doc } from "@/store/types";
 import { useI18n } from "@/lib/i18n";
 import { cn } from "@/lib/cn";
@@ -16,7 +15,6 @@ export default function DocumentsPage() {
   const tender = s.tenders.find((t) => t.id === s.activeTenderId);
   const ind = useIndustry(tender?.industry || "other");
   const fileRef = useRef<HTMLInputElement>(null);
-  const sowFileRef = useRef<HTMLInputElement>(null);
   const dirRef = useRef<HTMLInputElement>(null);
 
   // Global Language state (EN vs AR) synchronized with useI18n
@@ -25,9 +23,6 @@ export default function DocumentsPage() {
   const handleLanguageChange = (newLang: "en" | "ar") => {
     setLang(newLang);
   };
-  
-  // Single page: the takeoff workbench sits above the files repository.
-  const showTakeoff = () => document.getElementById("sow-takeoff")?.scrollIntoView({ behavior: "smooth", block: "start" });
 
   const [over, setOver] = useState(false);
   const [detail, setDetail] = useState<Doc | null>(null);
@@ -36,9 +31,6 @@ export default function DocumentsPage() {
   const take = (files: FileList | null) => {
     if (!files) return;
     void s.uploadDocs(Array.from(files));
-    // If an SOW was uploaded, bring the takeoff workbench into view
-    const hasSow = Array.from(files).some((f) => f.name.toLowerCase().includes("sow") || f.name.toLowerCase().includes("scope"));
-    if (hasSow) showTakeoff();
   };
 
   const [err, setErr] = useState<string | null>(null);
@@ -61,13 +53,13 @@ export default function DocumentsPage() {
 
   return (
     <div className={cn("font-sans space-y-6", isAr && "text-right font-sans")} dir={isAr ? "rtl" : "ltr"}>
-      {/* Top Header with Mode Switcher & Language Switcher */}
+      {/* Top Header with Language Switcher */}
       <PageHeader
-        title={isAr ? "المستندات وحصر نطاق العمل" : "Documents & Scope Takeoff"}
+        title={isAr ? "المستندات" : "Documents"}
         sub={
           isAr
-            ? `${tender?.name || ""} · استخبارات المستندات، حصر الكميات الموثق لنطاق العمل، ومستودع الملفات`
-            : `${tender?.name || ""} · Document intelligence, verified SOW takeoff & repository`
+            ? `${tender?.name || ""} · استخبارات المستندات والتحليل ومستودع الملفات`
+            : `${tender?.name || ""} · Document intelligence, AI analysis & repository`
         }
         right={
           <div className="flex flex-wrap items-center gap-2">
@@ -97,25 +89,8 @@ export default function DocumentsPage() {
         }
       />
 
-      {/* SOW TAKEOFF WORKBENCH */}
-      <div id="sow-takeoff" className="scroll-mt-4">
-          <input
-            ref={sowFileRef}
-            type="file"
-            accept=".pdf,.docx,.doc"
-            hidden
-            onChange={(e) => take(e.target.files)}
-          />
-
-          {/* Embedded Takeoff Workbench */}
-          <SOWTakeoffWorkbench
-            onUploadRequest={() => sowFileRef.current?.click()}
-            defaultLang={lang}
-          />
-      </div>
-
       {/* FILES REPOSITORY & MULTI-FILE UPLOAD */}
-      <div className="mt-8 space-y-6 border-t border-app-border pt-6">
+      <div className="space-y-6">
         <h2 className="flex items-center gap-2 text-sm font-semibold text-app-text">
           <HardDrive size={14} />
           {isAr ? `مستودع الملفات (${s.docs.length})` : `Files Repository (${s.docs.length})`}
@@ -264,44 +239,53 @@ export default function DocumentsPage() {
                               </span>
                             ) : null}
                           </p>
-                        ) : d.ocr.note && d.ocr.note !== "plain text" && d.ocr.note !== "not a PDF" ? (
+                        ) : d.ocr.note && !["plain text", "not a PDF", "spreadsheet"].includes(d.ocr.note) ? (
                           <p className="mt-1 max-w-[190px] text-[10px] leading-snug text-app-yellow">
                             No OCR cross-check: {d.ocr.note}
                           </p>
                         ) : null
                       )}
                       {d.status === "FAILED" && d.analysis?.Error && (
-                        <p className="mt-1 max-w-[160px] text-[10px] text-app-red">{d.analysis.Error}</p>
+                        <p className="mt-1 max-w-[200px] text-[10px] leading-snug text-app-red">
+                          {d.analysis.Error === "Failed to fetch"
+                            ? isAr ? "انقطع الاتصال أثناء الرفع. يرجى إعادة رفع الملف." : "Server was restarting or disconnected. Please re-upload."
+                            : d.analysis.Error}
+                        </p>
                       )}
                     </td>
                     <td className="px-3 py-2">
                       <div className="flex items-center gap-2">
-                        {d.name.toLowerCase().includes("sow") || d.name.toLowerCase().includes("scope") ? (
+                        {d.status === "FAILED" ? (
                           <Button
                             size="sm"
-                            variant="primary"
-                            onClick={showTakeoff}
-                            className="gap-1 text-xs"
+                            variant="outline"
+                            onClick={() => {
+                              s.deleteDoc(d.id);
+                              fileRef.current?.click();
+                            }}
+                            className="text-xs text-app-red hover:bg-app-red/10"
                           >
-                            <Layers size={11} /> {isAr ? "حصر النطاق" : "SOW Takeoff"}
+                            {isAr ? "إعادة الرفع" : "Re-upload"}
                           </Button>
-                        ) : null}
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          disabled={d.status !== "INDEXED" || analysing === d.id}
-                          onClick={() => analyse(d)}
-                        >
-                          <Sparkles size={11} />
-                          {analysing === d.id
-                            ? isAr ? "جاري التحليل..." : "Analysing…"
-                            : d.analysis
-                            ? isAr ? "إعادة تحليل" : "Re-analyse"
-                            : isAr ? "تحليل" : "Analyze"}
-                        </Button>
+                        ) : (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={d.status !== "INDEXED" || analysing === d.id}
+                            onClick={() => analyse(d)}
+                          >
+                            <Sparkles size={11} />
+                            {analysing === d.id
+                              ? isAr ? "جاري التحليل..." : "Analysing…"
+                              : d.analysis
+                              ? isAr ? "إعادة تحليل" : "Re-analyse"
+                              : isAr ? "تحليل" : "Analyze"}
+                          </Button>
+                        )}
                         <button
                           onClick={() => s.deleteDoc(d.id)}
                           className="text-app-dim hover:text-app-red transition-colors p-1"
+                          title={isAr ? "حذف المستند" : "Delete document"}
                         >
                           <Trash2 size={13} />
                         </button>
@@ -326,6 +310,32 @@ export default function DocumentsPage() {
             </p>
           )}
 
+          {s.analysisBusy && (
+            <Card className="border-app-accent/40 bg-app-accent/5 p-4">
+              <div className="flex items-center justify-between text-xs">
+                <span className="flex items-center gap-2 font-medium text-app-text">
+                  <Sparkles size={14} className="animate-spin text-app-accent" />
+                  {s.analysisProgress?.msg || "AI Analysis in progress…"}
+                </span>
+                <span className="font-mono text-app-accent">{s.analysisProgress?.pct ?? 0}%</span>
+              </div>
+              <div className="mt-2.5 h-1.5 w-full overflow-hidden rounded bg-app-panel-2">
+                <div
+                  className="h-full bg-app-accent transition-all duration-300"
+                  style={{ width: `${s.analysisProgress?.pct ?? 0}%` }}
+                />
+              </div>
+              <div className="mt-2 flex justify-end">
+                <Link
+                  href={`/app/tenders/${s.activeTenderId}/ai-analysis`}
+                  className="text-[11px] font-medium text-app-accent hover:underline flex items-center gap-1"
+                >
+                  {isAr ? "عرض التحليل المباشر ←" : "View live analysis report →"}
+                </Link>
+              </div>
+            </Card>
+          )}
+
           <div className="flex flex-wrap items-center gap-3 rounded border border-app-accent/30 bg-app-accent/5 px-4 py-3">
             <Sparkles size={14} className="text-app-accent" />
             <p className="flex-1 text-xs text-app-text">
@@ -333,9 +343,9 @@ export default function DocumentsPage() {
                 ? "تشغيل المراجعة الشاملة بالذكاء الاصطناعي لهذا العطاء من المستندات المفهرسة — الملخص، المتطلبات الموثقة، شروط العقد، الاستفسارات، المخاطر، الالتزام والمخرجات."
                 : "Run the full AI review of this tender from the indexed documents — summary, cited requirements, contract terms, clarifications, risks, compliance and deliverables."}
             </p>
-            <Link href={`/app/tenders/${s.activeTenderId}/ai-analysis`}>
-              <Button variant="primary" size="sm">
-                <Sparkles size={11} /> {isAr ? "فتح مراجعة الذكاء الاصطناعي" : "Open AI Analysis"}
+            <Link href={`/app/tenders/${s.activeTenderId}/ai-analysis?start=1`}>
+              <Button variant="primary" size="sm" className="gap-1.5 font-semibold">
+                <Sparkles size={12} /> {isAr ? "تشغيل تحليل الذكاء الاصطناعي" : "Run AI Analysis"}
               </Button>
             </Link>
           </div>

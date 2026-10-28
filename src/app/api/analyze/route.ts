@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { guard } from "@/lib/server/guard";
+import { extractTakeoff, type Ask } from "@/lib/server/takeoff";
 import { completeJSON, provider, providerLabel } from "@/lib/server/llm";
 import { extractFile } from "@/lib/server/verified/extract";
 import { runVerifiedPipeline } from "@/lib/server/verified/pipeline";
@@ -53,6 +54,15 @@ export async function POST(req: NextRequest) {
 
   try { const body = await req.json(); text = String(body.text || ""); name = body.name || name; mode = body.mode || "tender"; context = body.context || {}; depth = body.depth === "deep" ? "deep" : "standard"; }
   catch (e) { return Response.json({ error: `Could not read request: ${e instanceof Error ? e.message : "unknown"}` }, { status: 400 }); }
+  if (mode === "takeoff") {
+    // Quantity takeoff from a SOW / BOQ / MTO: spreadsheets need no AI; PDF/Word use the AI but every item is checked in code.
+    if (!text.trim()) return Response.json({ error: "No extractable text (scanned PDF? re-upload so OCR can run)." }, { status: 422 });
+    return stream(req, async (send, aborted) => {
+      const ask: Ask = (system, user) => completeJSON<{ items?: unknown[] }>(system, user, 4000);
+      const r = await extractTakeoff(text, ask, { aborted, progress: (done, total) => send({ type: "progress", stage: "takeoff", done, total, msg: total ? `Reading section ${Math.min(done + 1, total)} of ${total}…` : "Reading…" }) });
+      send({ type: "result", ...r, provider: providerLabel() });
+    });
+  }
   if (!provider()) return Response.json({ error: "no_credentials" }, { status: 503 });
 
   if (mode === "draft") {

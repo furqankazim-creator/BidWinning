@@ -30,6 +30,7 @@ import { Button, Card, Badge, Label, SectionTitle } from "@/components/ui";
 import { useScopedStore, useStore, fmtMoney } from "@/store/useStore";
 import { useI18n } from "@/lib/i18n";
 import { cn } from "@/lib/cn";
+import { SOWTakeoffReal } from "./SOWTakeoffReal";
 
 // SOW Takeoff Preliminary Register Item with Bilingual Support
 export interface MTOItem {
@@ -538,10 +539,14 @@ export function SOWTakeoffWorkbench({
 
   const isSeedT5 = activeTenderId === "t5";
   const [demoLoaded, setDemoLoaded] = useState(false);
+  const [showSample, setShowSample] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
 
   // Determine if takeoff data should be displayed
-  const isIngested = isSeedT5 || Boolean(sowDoc) || demoLoaded;
+  const isIngested = isSeedT5 || Boolean(sowDoc) || demoLoaded || showSample;
+  // The screens below this point are the built-in Aramco SAMPLE. The user's own documents use SOWTakeoffReal.
+  const hasRealDocs = docs.some((d) => d.status === "INDEXED" && d.text);
+  const sampleMode = showSample || demoLoaded || isSeedT5;
 
   const [activeTab, setActiveTab] = useState<"summary" | "mto" | "labor" | "specialty">("summary");
   const [searchTerm, setSearchTerm] = useState("");
@@ -618,6 +623,9 @@ export function SOWTakeoffWorkbench({
   // =========================================================================
   // EMPTY INTAKE SCREEN FOR NEW WORKSPACES (WHEN NO SOW IS INGESTED YET)
   // =========================================================================
+  // Real documents -> the real takeoff screen (nothing from the built-in sample is shown).
+  if (hasRealDocs && !sampleMode) return <SOWTakeoffReal onUploadRequest={onUploadRequest} onShowSample={() => setShowSample(true)} />;
+
   if (!isIngested) {
     return (
       <div className={cn("space-y-6", isAr && "text-right")} dir={isAr ? "rtl" : "ltr"}>
@@ -770,6 +778,12 @@ export function SOWTakeoffWorkbench({
   // =========================================================================
   return (
     <div className={cn("space-y-6", isAr && "text-right font-sans")} dir={isAr ? "rtl" : "ltr"}>
+      {/* The data on this screen is the built-in Saudi Aramco sample, never the user's own file */}
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded border border-app-yellow/50 bg-app-yellow/10 px-4 py-2.5">
+        <p className="flex items-center gap-2 text-xs font-semibold text-app-yellow"><AlertTriangle size={14} />{isAr ? "بيانات تجريبية — هذا مثال مدمج وليس من ملفاتك" : "SAMPLE DATA — a built-in example (Saudi Aramco smart meters). It is not read from your files."}</p>
+        {hasRealDocs && <Button size="sm" variant="outline" onClick={() => { setShowSample(false); setDemoLoaded(false); }}>{isAr ? "العودة إلى مستنداتي" : "Back to my documents"}</Button>}
+      </div>
+
       {/* Top Banner: Scope Takeoff Engine */}
       <Card className="border-app-accent/40 bg-gradient-to-r from-app-panel via-app-panel-2 to-app-accent/5 p-5">
         <div className="flex flex-wrap items-center justify-between gap-4">
@@ -979,7 +993,7 @@ export function SOWTakeoffWorkbench({
           </span>
           {demoLoaded && (
             <button
-              onClick={() => setDemoLoaded(false)}
+              onClick={() => { setDemoLoaded(false); setShowSample(false); }}
               className="flex items-center gap-1 rounded border border-app-border px-2 py-0.5 text-[10px] text-app-muted hover:text-app-red"
             >
               <RotateCcw size={10} /> {isAr ? "مسح النموذج" : "Clear Sample"}

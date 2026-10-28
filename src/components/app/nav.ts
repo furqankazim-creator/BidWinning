@@ -27,19 +27,8 @@ export function buildNav(tid: string): NavGroup[] {
       { label: "Requirements", href: w("/requirements"), icon: ListChecks },
       { label: "Compliance", href: w("/compliance"), icon: ShieldCheck },
       { label: "Go / No-Go", href: w("/go-no-go"), icon: Scale },
-      { label: "Setup & Milestones", href: "/app/setup", icon: FileBadge },
-      { label: "Engineering", href: w("/engineering"), icon: DraftingCompass },
-      { label: "Pricing", href: w("/pricing"), icon: SlidersHorizontal },
       { label: "Technical Proposal", href: w("/technical"), icon: FileSignature },
-      { label: "Commercial Proposal", href: w("/commercial"), icon: Receipt },
-      { label: "Reviews", href: w("/reviews"), icon: ClipboardCheck, countKey: "reviews" },
-    ] },
-    { label: "Governance", items: [
-      { label: "Approvals", href: "/app/approvals", icon: Stamp, countKey: "approvals" },
-    ] },
-    { label: "ERP", items: [
-      { label: "Contracts", href: "/app/contracts", icon: FileBadge },
-      { label: "Projects", href: "/app/projects", icon: FolderKanban },
+      { label: "Pricing", href: w("/pricing"), icon: SlidersHorizontal },
     ] },
     { label: "Intelligence", items: [
       { label: "Reports & Analytics", href: "/app/reports", icon: BarChart3 },

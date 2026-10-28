@@ -63,9 +63,29 @@ export async function extractFile(file: File, emit: (e: ExtractEvent) => void = 
     const r = await mammoth.extractRawText({ buffer: buf });
     return { name: file.name, text: r.value, pages: Math.max(1, Math.round(r.value.length / 3000)), ocr: noOcr("not a PDF"), boilerplateLines: 0 };
   }
+  if (name.endsWith(".xlsx") || name.endsWith(".xlsm")) {
+    // Spreadsheets (BOQ / MTO / price schedules): one block per sheet, one line per row, cells joined with " | ".
+    const ExcelJS = (await import("exceljs")).default;
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load(buf as unknown as ArrayBuffer);
+    const blocks: string[] = [];
+    wb.eachSheet((ws) => {
+      const rows: string[] = [];
+      ws.eachRow({ includeEmpty: false }, (row) => {
+        const cells: string[] = [];
+        row.eachCell({ includeEmpty: true }, (c) => { let t = ""; try { t = c.text; } catch { t = String(c.value ?? ""); } cells.push(t.replace(/\s+/g, " ").trim()); });
+        while (cells.length && !cells[cells.length - 1]) cells.pop();
+        if (cells.some(Boolean)) rows.push(cells.join(" | "));
+      });
+      if (rows.length) blocks.push(`Sheet: ${ws.name}\n${rows.join("\n")}`);
+    });
+    const text = blocks.join("\n\n");
+    if (!text.trim()) throw new Error("The spreadsheet has no readable cells.");
+    return { name: file.name, text, pages: Math.max(1, blocks.length), ocr: noOcr("spreadsheet"), boilerplateLines: 0 };
+  }
   if (!name.endsWith(".pdf")) {
     if (TEXT_EXT.test(name)) return { name: file.name, text: buf.toString("utf8"), pages: 1, ocr: noOcr("plain text"), boilerplateLines: 0 };
-    throw new Error(`Unsupported file type "${name.split(".").pop()}" — upload PDF, DOCX or plain-text files (convert .doc/.xls/images first)`);
+    throw new Error(`Unsupported file type "${name.split(".").pop()}" — upload PDF, DOCX, XLSX or plain-text files (convert .doc/.xls/images first)`);
   }
 
   // 1) text layer (unpdf = maintained pdf.js; pdf-parse's 2018 pdf.js fails with "bad XRef entry" under Next)

@@ -18,15 +18,13 @@ export default function TenderLayout({ children }: { children: React.ReactNode }
   const w = (p: string) => `/app/tenders/${t.id}${p}`;
   const tabs = [
     ["Overview", w("")],
+    ["Documents", "/app/documents"],
     ["AI Analysis", w("/ai-analysis")],
-    ["Go/No-Go", w("/go-no-go")],
     ["Requirements", w("/requirements")],
     ["Compliance", w("/compliance")],
-    ["Engineering", w("/engineering")],
+    ["Go/No-Go", w("/go-no-go")],
     ["Technical", w("/technical")],
     ["Pricing", w("/pricing")],
-    ["Commercial", w("/commercial")],
-    ["Reviews", w("/reviews")],
   ];
   const h = tenderHealth(s, t.id);
   const days = t.closing ? daysLeft(t.closing) : null;
@@ -47,7 +45,7 @@ export default function TenderLayout({ children }: { children: React.ReactNode }
         <div className="flex items-center gap-3 rounded border border-app-border bg-app-panel px-4 py-2"><Activity size={14} className="text-app-muted" /><div><Label>Tender health</Label><p className={cn("font-display text-2xl leading-none", h.score >= 70 ? "text-app-green" : h.score >= 40 ? "text-app-yellow" : "text-app-red")}>{h.score}<span className="text-xs text-app-muted">/100</span></p></div></div>
       </div>
       <div className="app-scroll -mx-1 mb-5 flex gap-1 overflow-x-auto border-b border-app-border px-1 print:hidden">
-        {tabs.map(([l, href]) => { const active = href.startsWith("/app/tenders") ? pathname === href : false; return <Link key={l} href={href} className={cn("whitespace-nowrap border-b-2 px-3 py-2 text-xs", active ? "border-app-accent text-app-text" : "border-transparent text-app-muted hover:text-app-text")}>{l}</Link>; })}
+        {tabs.map(([l, href]) => { const active = pathname === href; return <Link key={l} href={href} className={cn("whitespace-nowrap border-b-2 px-3 py-2 text-xs", active ? "border-app-accent text-app-text" : "border-transparent text-app-muted hover:text-app-text")}>{l}</Link>; })}
       </div>
       <div className="grid gap-5 xl:grid-cols-[1fr_280px]">
         <div className="min-w-0 print:w-full">{children}</div>
