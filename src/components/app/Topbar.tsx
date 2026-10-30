@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 import { ChevronLeft, ChevronRight, Clock, Search, Bell, Filter, Cloud, CloudOff, LogOut } from "lucide-react";
-import { apiEnabled, setSession } from "@/lib/api";
+import { apiEnabled, setSession, useRole } from "@/lib/api";
 import { syncStatus } from "@/store/sync";
 import { AppThemeToggle } from "@/components/marketing/Theme";
 import { useStore, daysLeft, dueLabel } from "@/store/useStore";
@@ -23,7 +23,7 @@ export function Topbar() {
   const [bell, setBell] = useState(false); const [, tick] = useState(0);
   useEffect(() => { const l = () => tick((n) => n + 1); syncStatus.listeners.add(l); return () => { syncStatus.listeners.delete(l); }; }, []);
   const tender = tenders.find((t) => t.id === activeTenderId);
-  const page = allPagesFor(activeTenderId).find((p) => p.href === pathname);
+  const role = useRole(); const page = allPagesFor(activeTenderId, role).find((p) => p.href === pathname);
   const rawCrumb = page ? page.label : pathname.split("/").pop();
   const crumb = rawCrumb ? t(rawCrumb, rawCrumb) : "";
   const days = tender?.closing ? daysLeft(tender.closing) : null;
@@ -63,6 +63,7 @@ export function Topbar() {
         <AppThemeToggle className="flex items-center gap-1 rounded border border-app-border px-1.5 py-1.5 text-xs text-app-muted hover:text-app-text" />
         <button onClick={() => setPalette(true)} title={t("Search")} className="rounded border border-app-border p-1.5 text-app-muted hover:text-app-text"><Search size={13} /></button>
         <span title={apiEnabled() ? (syncStatus.lastError ? `${t("Error")}: ${syncStatus.lastError}` : syncStatus.pending ? t("Saving…") : t("Saved")) : t("Local")} className={cn("flex items-center gap-1 text-[11px]", !apiEnabled() ? "text-app-dim" : syncStatus.lastError ? "text-app-red" : syncStatus.pending ? "text-app-yellow" : "text-app-green")}>{apiEnabled() ? <Cloud size={13} /> : <CloudOff size={13} />}<span className="hidden lg:inline">{!apiEnabled() ? t("Local") : syncStatus.lastError ? t("Error") : syncStatus.pending ? t("Saving…") : t("Saved")}</span></span>
+        {role && apiEnabled() && <span title={role === "Bidder" ? "Bidder — you see only your own workspaces and documents" : `Signed in as ${role}`} className="rounded border border-app-border px-2 py-1 text-[11px] text-app-muted">{role}</span>}
         <button onClick={() => { setSession(null); router.push("/sign-in"); }} title={t("Sign out")} className="rounded border border-app-border p-1.5 text-app-muted hover:text-app-text"><LogOut size={13} /></button>
       </div>
     </header>

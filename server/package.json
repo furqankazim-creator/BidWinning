@@ -4,11 +4,12 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "(lsof -ti tcp:${PORT:-4005} | xargs kill 2>/dev/null; sleep 1; true) && USE_MEMORY_DB=1 tsx watch src/index.ts",
-    "dev:memory": "USE_MEMORY_DB=1 tsx watch src/index.ts",
+    "dev": "tsx watch src/index.ts",
+    "dev:memory": "cross-env USE_MEMORY_DB=1 tsx watch src/index.ts",
     "build": "tsc -p tsconfig.json",
     "start": "node dist/index.js",
-    "test": "USE_MEMORY_DB=1 INTERNAL_API_KEY=smoke-test-key DISABLE_RATE_LIMIT=1 PORT=4999 tsx src/smoke.ts"
+    "test": "cross-env ALLOW_OPEN_SIGNUP=1 USE_MEMORY_DB=1 INTERNAL_API_KEY=smoke-test-key DISABLE_RATE_LIMIT=1 PORT=4999 tsx src/smoke.ts",
+    "seed:demo": "tsx src/seed-demo.ts"
   },
   "dependencies": {
     "@lancedb/lancedb": "0.22.3",

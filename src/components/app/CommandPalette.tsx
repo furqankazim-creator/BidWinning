@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { Search, Plus, ArrowRight } from "lucide-react";
 import { Modal, Input, Field, Button } from "@/components/ui";
 import { allPagesFor } from "./nav";
+import { useRole } from "@/lib/api";
 import { useIndustries } from "@/lib/useIndustries";
 import { tenderTypes } from "@/lib/industries";
 import { useUI } from "./ui-state";
@@ -27,9 +28,10 @@ export function CommandPalette() {
   }, [setPalette]);
   useEffect(() => { if (!palette) { setQ(""); setCreating(false); setForm(blank); } }, [palette]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const role = useRole();
   const results = useMemo(() => {
     const s = q.toLowerCase();
-    const pages = allPagesFor(activeTenderId).filter((p) => p.label.toLowerCase().includes(s)).slice(0, 6);
+    const pages = allPagesFor(activeTenderId, role).filter((p) => p.label.toLowerCase().includes(s)).slice(0, 6);
     const ts = tenders.filter((t) => (t.name + t.client + t.reference).toLowerCase().includes(s));
     const hits = s.length < 2 ? [] : [
       ...companies.filter((c) => c.name.toLowerCase().includes(s)).map((c) => ({ id: c.id, label: c.name, kind: "Company", href: `/app/companies/${c.id}` })),
@@ -39,7 +41,7 @@ export function CommandPalette() {
       ...requirements.filter((r) => (r.text + r.clause).toLowerCase().includes(s)).map((r) => ({ id: r.id, label: `§${r.clause} ${r.text.slice(0, 60)}`, kind: "Requirement", href: `/app/tenders/${r.tenderId}/requirements` })),
     ].slice(0, 8);
     return { pages, ts, hits };
-  }, [q, tenders, activeTenderId, companies, contacts, opportunities, vendors, requirements]);
+  }, [q, tenders, activeTenderId, companies, contacts, opportunities, vendors, requirements, role]);
 
   const go = (href: string) => { setPalette(false); router.push(href); };
 

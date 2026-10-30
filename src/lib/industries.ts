@@ -82,7 +82,7 @@ export const goNoGoCriteria = ["Strategic fit", "Technical capability", "Experie
 
 export const reviewStages = ["Technical Review", "Commercial Review", "Legal Review", "Compliance Review", "Procurement Review", "Financial Review", "Management Review"] as const;
 
-export const roles = ["Super Admin", "Organization Admin", "Business Development", "Tender Manager", "Technical Manager", "Engineer", "Procurement Manager", "Commercial Manager", "Finance", "Legal", "Compliance", "Project Manager", "Reviewer", "Executive", "Viewer", "Contractor/Vendor"] as const;
+export const roles = ["Super Admin", "Business Development", "Tender Manager", "Technical Manager", "Engineer", "Procurement Manager", "Commercial Manager", "Finance", "Legal", "Compliance", "Project Manager", "Reviewer", "Executive", "Viewer", "Contractor/Vendor", "Bidder"] as const;
 
 export const partnerTypes = ["Contractor", "Supplier", "Manufacturer", "Consultant", "Service Provider", "Distributor", "Subcontractor", "Technology Partner", "JV Partner", "Other"] as const;
 

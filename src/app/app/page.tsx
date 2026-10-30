@@ -1,6 +1,7 @@
 "use client";
 import Link from "next/link";
 import { CalendarDays } from "lucide-react";
+import { useRole } from "@/lib/api";
 import { Card, Label, SectionTitle, Badge } from "@/components/ui";
 import { BarChart, Donut, Kpi, money, ColumnChart, AreaChart } from "@/components/app/charts";
 import { useStore, filterByIndustry, daysLeft, dueLabel, tenderHealth } from "@/store/useStore";
@@ -21,7 +22,7 @@ function forecast(opps: { expectedAward: string; value: number; probability: num
 }
 
 export default function Dashboard() {
-  const s = useStore();
+  const s = useStore(); const bidder = useRole() === "Bidder";
   const { t } = useI18n();
   const industries = useIndustries();
   const iname = (id: string) => industries.find((i) => i.id === id)?.name || id;
@@ -39,9 +40,9 @@ export default function Dashboard() {
 
   return (
     <div className="font-sans">
-      <div className="mb-5 flex items-end justify-between"><div><h1 className="font-display text-2xl text-app-text">{t("Executive Dashboard")}</h1><p className="text-xs text-app-muted">{s.org.name} · {s.industryFilter === "all" ? t("All Industries") : iname(s.industryFilter)}</p></div></div>
+      <div className="mb-5 flex items-end justify-between"><div><h1 className="font-display text-2xl text-app-text">{bidder ? t("My Dashboard") : t("Executive Dashboard")}</h1><p className="text-xs text-app-muted">{s.org.name} · {s.industryFilter === "all" ? t("All Industries") : iname(s.industryFilter)}</p></div></div>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6">
-        <Kpi label={t("Active opportunities")} value={pipeline.length} delta={12} />
+        {!bidder && <Kpi label={t("Active opportunities")} value={pipeline.length} delta={12} />}
         <Kpi label={t("Active tenders")} value={open.length} />
         <Kpi label={t("Closing ≤ 60 days")} value={closingSoon.length} tone={closingSoon.length ? "yellow" : undefined} />
         <Kpi label={t("RFPs / RFQs")} value={`${byType("RFP")} / ${byType("RFQ")}`} />
@@ -50,21 +51,21 @@ export default function Dashboard() {
         <Kpi label={t("Bids in preparation")} value={tenders.filter((t) => ["Bid Preparation", "Review", "Approval"].includes(t.stage)).length} />
         <Kpi label={t("Submitted")} value={tenders.filter((t) => ["Submitted", "Under Evaluation", "Clarification", "Negotiation"].includes(t.stage)).length} />
         <Kpi label={t("Won / Lost")} value={`${won} / ${lost}`} tone="green" sub={won + lost ? `${Math.round((won / (won + lost)) * 100)}% ${t("win rate")}` : t("no results yet")} />
-        <Kpi label={t("Pipeline value")} value={money(pipelineValue)} delta={8} />
-        <Kpi label={t("Weighted pipeline")} value={money(weighted)} tone="accent" />
-        <Kpi label={t("Expected margin")} value={`${s.margin}%`} sub={money(weighted * (s.margin / 100))} />
+        {!bidder && <Kpi label={t("Pipeline value")} value={money(pipelineValue)} delta={8} />}
+        {!bidder && <Kpi label={t("Weighted pipeline")} value={money(weighted)} tone="accent" />}
+        {!bidder && <Kpi label={t("Expected margin")} value={`${s.margin}%`} sub={money(weighted * (s.margin / 100))} />}
       </div>
 
       {/* Trend: cumulative pipeline value by month of creation, plus weighted forecast by expected-award quarter */}
-      <div className="mt-5 grid gap-3 lg:grid-cols-[3fr_2fr]">
+      {!bidder && <div className="mt-5 grid gap-3 lg:grid-cols-[3fr_2fr]">
         <AreaChart title={t("Pipeline growth")} sub={t("cumulative opportunity value by month created")} data={cumulative(opps)} fmt={(n) => money(n)} />
         <ColumnChart title={t("Revenue forecast")} data={forecast(opps)} fmt={(n) => money(n)} colorByIndex={false} accent="#c8772e" />
-      </div>
+      </div>}
       <div className="mt-3 grid gap-3 lg:grid-cols-3">
-        <BarChart title={t("Pipeline by industry")} data={group(pipeline, (o) => iname(o.industry), (o) => o.value)} fmt={(n) => money(n)} showPct />
-        <BarChart title={t("Pipeline by region")} data={group(pipeline, (o) => o.region, (o) => o.value)} fmt={(n) => money(n)} showPct />
-        <BarChart title={t("Pipeline by client")} data={group(pipeline, (o) => s.companies.find((c) => c.id === o.companyId)?.name || "—", (o) => o.value)} fmt={(n) => money(n)} showPct />
-        <ColumnChart title={t("Opportunities by stage")} data={stageOrder.map((st) => ({ label: st, value: opps.filter((o) => o.stage === st).length })).filter((d) => d.value)} />
+        {!bidder && <BarChart title={t("Pipeline by industry")} data={group(pipeline, (o) => iname(o.industry), (o) => o.value)} fmt={(n) => money(n)} showPct />}
+        {!bidder && <BarChart title={t("Pipeline by region")} data={group(pipeline, (o) => o.region, (o) => o.value)} fmt={(n) => money(n)} showPct />}
+        {!bidder && <BarChart title={t("Pipeline by client")} data={group(pipeline, (o) => s.companies.find((c) => c.id === o.companyId)?.name || "—", (o) => o.value)} fmt={(n) => money(n)} showPct />}
+        {!bidder && <ColumnChart title={t("Opportunities by stage")} data={stageOrder.map((st) => ({ label: st, value: opps.filter((o) => o.stage === st).length })).filter((d) => d.value)} />}
         <Donut title={t("Tenders by type")} data={group(tenders, (t) => t.tenderType, () => 1)} sub="tenders" />
         <Donut title={t("Win / loss")} data={[{ label: "Won", value: won }, { label: "Lost", value: lost }, { label: "Open", value: open.length }]} center={won + lost ? `${Math.round((won / (won + lost)) * 100)}%` : "—"} sub={t("win rate")} />
       </div>
@@ -94,9 +95,11 @@ export default function Dashboard() {
           </Card>
         </div>
       </div>
-      <div className="mt-6"><Label>{t("Industry performance")}</Label>
+      {!bidder && <div className="mt-6"><Label>{t("Industry performance")}</Label>
         <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">{group(s.opportunities, (o) => o.industry, () => 1).map((g) => { const its = s.opportunities.filter((o) => o.industry === g.label); const w = its.filter((o) => o.stage === "Won").length; return <Card key={g.label} className="p-3"><p className="text-[13px] text-app-text">{iname(g.label)}</p><p className="text-[11px] text-app-muted">{its.length} opportunities · {money(its.reduce((a, o) => a + o.value, 0))} · {w} won</p></Card>; })}</div>
-      </div>
+      </div>}
     </div>
   );
 }
+
+

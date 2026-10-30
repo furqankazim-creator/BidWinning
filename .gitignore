@@ -7,3 +7,4 @@ out
 !.env.example
 .vercel
 .ocr-cache
+!.env.production.example

@@ -10,14 +10,15 @@ import { buildNav, type NavItem } from "./nav";
 import { agents } from "@/store/seed";
 import { useUI } from "./ui-state";
 import { useI18n } from "@/lib/i18n";
+import { useRole } from "@/lib/api";
 
 export function Sidebar() {
   const pathname = usePathname();
-  const { collapsed, setCollapsed, setPalette, setSettings, mode, setMode, agent, setAgent } = useUI();
+  const { collapsed, setCollapsed, setPalette, mode, setMode, agent, setAgent } = useUI();
   const { t } = useI18n();
   const { tenders, activeTenderId, setActiveTender, clarifications, clauses, deliverables, inquiries, approvals, reviews } = useScopedStore();
   const counts = { clarifications: clarifications.filter((c) => c.pending || c.status === "Draft").length, contract: clauses.filter((c) => c.pending || c.status === "Pending").length + 1, deliverables: deliverables.length, inquiries: inquiries.filter((i) => i.status === "New").length, approvals: approvals.filter((a) => a.status === "Pending").length, reviews: reviews.filter((r) => r.tenderId === activeTenderId && r.status === "Pending").length };
-  const groups = buildNav(activeTenderId);
+  const role = useRole(); const groups = buildNav(activeTenderId, role);
   const activeTender = tenders.find((t) => t.id === activeTenderId);
 
   return (
@@ -78,10 +79,10 @@ export function Sidebar() {
         </>
       )}
 
-      <button onClick={() => setSettings(true)} className="flex items-center justify-between border-t border-app-border px-4 py-3 text-[13px] text-app-text hover:bg-app-panel">
+      <Link href="/app/settings" className="flex items-center justify-between border-t border-app-border px-4 py-3 text-[13px] text-app-text hover:bg-app-panel">
         <span className="flex items-center gap-3"><Settings size={15} className="text-app-muted" />{!collapsed && t("Settings")}</span>
         {!collapsed && <ChevronRight size={13} className="text-app-dim rtl:rotate-180" />}
-      </button>
+      </Link>
     </aside>
   );
 }

@@ -20,7 +20,7 @@ function AuthCardInner({ mode }: { mode: "sign-in" | "sign-up" }) {
     e.preventDefault(); setErr(null); setBusy(true);
     try {
       if (!apiEnabled()) { // demo mode — no backend configured
-        localStorage.setItem("vq.session", JSON.stringify({ token: "", user: { id: "demo", name: form.name || form.email.split("@")[0], email: form.email, role: "Organization Admin", orgId: "demo" }, org: { id: "demo", name: "Demo organisation", plan: "Team", currency: "USD", industries: [], seeded: true } }));
+        localStorage.setItem("vq.session", JSON.stringify({ token: "", user: { id: "demo", name: form.name || form.email.split("@")[0], email: form.email, role: "Super Admin", orgId: "demo" }, org: { id: "demo", name: "Demo organisation", plan: "Team", currency: "USD", industries: [], seeded: true } }));
         router.push("/app"); return;
       }
       const s = mode === "sign-in" ? await authApi.login(form.email, form.password) : await authApi.signup({ name: form.name, email: form.email, password: form.password, organisation: inviteToken ? undefined : form.organisation, invite: inviteToken || undefined });
@@ -33,7 +33,7 @@ function AuthCardInner({ mode }: { mode: "sign-in" | "sign-up" }) {
       <div className="w-full max-w-md border border-line bg-white/60 p-8 dark-card">
         <Link href="/" className="flex items-center gap-3"><span className="flex h-8 w-8 items-center justify-center border border-ink font-display text-lg">{brand.logoLetter}</span><span className="eyebrow">{brand.company.toUpperCase()}</span></Link>
         <h1 className="mt-8 font-display text-3xl">{mode === "sign-in" ? "Welcome back." : invite ? `Join ${invite.organisation}` : "Create your organisation."}</h1>
-        <p className="mt-2 text-sm text-muted">{mode === "sign-in" ? `Sign in to your ${brand.company} workspace.` : invite ? `You were invited as ${invite.role}.` : "You become the Organization Admin and can invite your team. 3-day trial, no charge until it ends."}</p>
+        <p className="mt-2 text-sm text-muted">{mode === "sign-in" ? `Sign in to your ${brand.company} workspace.` : invite ? `You were invited as ${invite.role}.` : "Your organisation is created and you can invite your team. 3-day trial, no charge until it ends."}</p>
         {expired && <p className="mt-3 text-xs text-accent">Your session expired — please sign in again.</p>}
         {!apiEnabled() && <p className="mt-3 rounded border border-line px-3 py-2 text-xs text-muted">Demo mode: no API configured (NEXT_PUBLIC_API_URL). Any email/password opens the sample workspace stored in this browser.</p>}
         <form onSubmit={submit} className="mt-6 space-y-3">

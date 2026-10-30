@@ -1,12 +1,22 @@
 "use client";
+import { useEffect, useState } from "react";
 /** Thin client for the BidWinning Express API. When NEXT_PUBLIC_API_URL is unset the app runs in local demo mode. */
 export const API_URL = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/$/, "");
 export const apiEnabled = () => !!API_URL;
 
-export interface Session { token: string; user: { id: string; name: string; email: string; role: string; orgId: string }; org: { id: string; name: string; plan: string; currency: string; industries: string[]; seeded: boolean }; }
+export interface Session { token: string; user: { id: string; name: string; email: string; role: string; orgId: string; company?: string; phone?: string; title?: string; lastLoginAt?: string; createdAt?: string }; org: { id: string; name: string; plan: string; currency: string; industries: string[]; seeded: boolean }; }
 const KEY = "vq.session";
 export const getSession = (): Session | null => { try { const s = localStorage.getItem(KEY); return s ? (JSON.parse(s) as Session) : null; } catch { return null; } };
-export const setSession = (s: Session | null) => { try { if (s) localStorage.setItem(KEY, JSON.stringify(s)); else localStorage.removeItem(KEY); } catch {} };
+export const setSession = (s: Session | null) => { try { if (s) localStorage.setItem(KEY, JSON.stringify(s)); else localStorage.removeItem(KEY); } catch {} if (typeof window !== "undefined") window.dispatchEvent(new Event("vq.session")); };
+
+export const ADMIN_ROLES = ["Super Admin"];
+export const isAdminRole = (role?: string) => !!role && ADMIN_ROLES.includes(role);
+/** The signed-in user's role ("" until the browser has read the session). Updates when the session changes. */
+export function useRole(): string {
+  const [role, setRole] = useState("");
+  useEffect(() => { const read = () => setRole(getSession()?.user.role || ""); read(); window.addEventListener("vq.session", read); return () => window.removeEventListener("vq.session", read); }, []);
+  return role;
+}
 
 export class ApiError extends Error { constructor(public status: number, message: string) { super(message); } }
 
@@ -26,5 +36,7 @@ export const authApi = {
   signup: (p: { name: string; email: string; password: string; organisation?: string; invite?: string }) => api<Session>("/api/auth/signup", { method: "POST", json: p, auth: false }),
   invite: (token: string) => api<{ email: string; role: string; organisation: string }>(`/api/auth/invite/${token}`, { auth: false }),
   me: () => api<Omit<Session, "token">>("/api/auth/me"),
+  updateProfile: (p: { name?: string; company?: string; phone?: string; title?: string }) => api<{ user: Session["user"] }>("/api/auth/profile", { method: "PATCH", json: p }),
+  changeEmail: (email: string, password: string) => api<{ user: Session["user"] }>("/api/auth/email", { method: "PATCH", json: { email, password } }),
   changePassword: (current: string, next: string) => api("/api/auth/change-password", { method: "POST", json: { current, next } }),
 };

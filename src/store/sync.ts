@@ -5,7 +5,7 @@
  *  - start(): subscribe to the store; when a synced collection's array reference changes, debounce and PUT the
  *    whole collection to /api/data/:collection/sync (last-write-wins per collection). Settings go to /settings.
  */
-import { api, apiEnabled, getSession } from "@/lib/api";
+import { api, apiEnabled, getSession, setSession, authApi } from "@/lib/api";
 import { useStore } from "./useStore";
 
 export const SYNCED = ["tenders", "actions", "projects", "vendors", "docs", "clarifications", "clauses", "qualifications", "risks", "deliverables", "costLines", "milestones", "lessons", "companies", "contacts", "opportunities", "activities", "requirements", "complianceItems", "capabilities", "aiSummaries", "reviews", "approvals", "priceVersions", "proposalSections", "bidResults", "inquiries", "contracts", "aiLog", "notifications", "customIndustries", "procPackages", "quotations", "submissions", "chat"] as const;
@@ -17,7 +17,8 @@ export const syncStatus = { pending: 0, lastError: "" as string, listeners: new 
 const emit = () => syncStatus.listeners.forEach((l) => l());
 
 export async function hydrate(): Promise<"seeded" | "loaded"> {
-  const sess = getSession(); if (!apiEnabled() || !sess) return "loaded";
+  let sess = getSession(); if (!apiEnabled() || !sess) return "loaded";
+  try { const me = await authApi.me(); sess = { ...sess, user: me.user, org: me.org }; setSession(sess); } catch (e) { if (e instanceof Error && /account_disabled|invalid_token|unauthenticated/.test(e.message)) { setSession(null); location.href = "/sign-in?expired=1"; } }
   const [snap, orgInfo] = await Promise.all([
     api<{ collections: Record<string, unknown[]>; settings: Record<string, unknown> }>("/api/data/state"),
     api<{ org: { name: string; plan: string; currency: string; industries: string[]; seeded: boolean }; users: { id: string; name: string; email: string; role: string; active: boolean }[] }>("/api/org"),

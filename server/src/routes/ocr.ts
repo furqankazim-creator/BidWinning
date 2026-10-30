@@ -1,6 +1,7 @@
 import { Router } from "express";
 import multer from "multer";
 import path from "path";
+import { fileURLToPath } from "url";
 
 /**
  * POST /api/ocr/pdf  (multipart: file, pages?="1,2,5-9" | "all", scale?=1.5, hiPages?="82-98" rendered at scale 2.2 — dense scanned pages)
@@ -50,7 +51,7 @@ ocr.post("/pdf", upload.single("file"), async (req, res) => {
     const scale = Math.min(3, Math.max(1.5, Number(req.body?.scale) || 1.5));
     const hi = new Set(parsePages(String(req.body?.hiPages || ""), pdf.numPages));
     send({ type: "start", total: pages.length, pdfPages: pdf.numPages });
-    const langPath = path.dirname(new URL(import.meta.resolve("@tesseract.js-data/eng/4.0.0_best_int/eng.traineddata.gz")).pathname);
+    const langPath = path.dirname(fileURLToPath(import.meta.resolve("@tesseract.js-data/eng/4.0.0_best_int/eng.traineddata.gz"))) /* fileURLToPath, not URL.pathname: that gives "/E:/…" on Windows and Tesseract resolved it to E:E:… */;
     const workers = await Promise.all(Array.from({ length: Math.min(WORKERS, pages.length) }, () => tesseract.createWorker("eng", 1, { langPath, gzip: true, cachePath: path.join(process.cwd(), "data", "ocr-cache") })));
     let next = 0;
     await Promise.all(workers.map(async (w) => {
